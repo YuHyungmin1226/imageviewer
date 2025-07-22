@@ -226,16 +226,7 @@ st.markdown("""
 .stTextInput, .stTextArea, .stButton {
     margin-bottom: 18px;
 }
-/* Streamlit 기본 컨테이너 테두리 제거 */
-.element-container, .block-container, .main .block-container {
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-[data-testid="stVerticalBlock"] > [style*="border"] {
-    border: none !important;
-    background: transparent !important;
-}
+/* 필요시 여기에 추가 CSS */
 .post-card {
     background: #f5f6fa;
     border: 2px solid #d1d9e0;
@@ -608,7 +599,6 @@ try:
                 st.rerun()
             # 게시물 작성 영역
             st.markdown("### 📝 게시물 작성")
-            st.info("💡 현재 텍스트와 URL 링크만 지원됩니다. (파일 첨부 기능은 제거되었습니다)")
             
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
