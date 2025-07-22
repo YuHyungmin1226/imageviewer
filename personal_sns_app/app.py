@@ -661,11 +661,16 @@ try:
                     new_files = []
                     for file in media_files:
                         file_type = "image" if file.type.startswith("image/") else "video"
+                        
+                        # 파일 내용을 즉시 읽어서 저장 (스트림 문제 해결)
+                        file.seek(0)  # 스트림 초기화
+                        file_content = file.read()  # bytes로 내용 읽기
+                        
                         file_info = {
                             'name': file.name,
                             'size': file.size,
                             'type': file_type,
-                            'file_obj': file
+                            'content': file_content  # file_obj 대신 content 저장
                         }
                         # 중복 체크
                         if not any(f['name'] == file.name for f in st.session_state.selected_media_files):
@@ -699,11 +704,16 @@ try:
                     new_files = []
                     for file in other_files:
                         file_type = "audio" if file.type.startswith("audio/") or file.name.lower().endswith(('.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a')) else "document"
+                        
+                        # 파일 내용을 즉시 읽어서 저장 (스트림 문제 해결)
+                        file.seek(0)  # 스트림 초기화
+                        file_content = file.read()  # bytes로 내용 읽기
+                        
                         file_info = {
                             'name': file.name,
                             'size': file.size,
                             'type': file_type,
-                            'file_obj': file
+                            'content': file_content  # file_obj 대신 content 저장
                         }
                         # 중복 체크
                         if not any(f['name'] == file.name for f in st.session_state.selected_other_files):
@@ -739,15 +749,27 @@ try:
                 uploaded_files = []
                 all_selected_files = st.session_state.selected_media_files + st.session_state.selected_other_files
                 
+                st.info(f"📎 첨부된 파일 개수: {len(all_selected_files)}")  # 디버깅용
+                
                 for file_info in all_selected_files:
                     try:
                         file_id = f"{uuid.uuid4().hex}_{file_info['name']}"
                         file_path = os.path.join(UPLOADS_DIR, file_id)
                         
-                        # 파일 저장
-                        file_content = file_info['file_obj'].read()
+                        # 파일 내용 가져오기
+                        file_content = file_info['content']
+                        
+                        # 파일 내용이 비어있는지 확인
+                        if not file_content:
+                            st.warning(f"⚠️ 파일 내용이 비어있습니다: {file_info['name']}")
+                            continue
+                        
                         with open(file_path, "wb") as f_out:
                             f_out.write(file_content)
+                        
+                        # 저장된 파일 크기 확인
+                        saved_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+                        st.success(f"✅ {file_info['name']} 저장 완료 ({saved_size} bytes)")
                         
                         uploaded_files.append({
                             "original_name": file_info['name'],
@@ -756,7 +778,9 @@ try:
                             "size": file_info['size']
                         })
                     except Exception as e:
-                        st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
+                        st.error(f"❌ 파일 업로드 실패: {file_info['name']} - {e}")
+                
+                st.info(f"💾 저장된 파일 개수: {len(uploaded_files)}")  # 디버깅용
                 
                 # URL 미리보기 처리
                 processed_content, url_previews = url_preview_generator.process_text_with_urls(content)
