@@ -226,7 +226,25 @@ st.markdown("""
 .stTextInput, .stTextArea, .stButton {
     margin-bottom: 18px;
 }
-/* 필요시 여기에 추가 CSS */
+/* 게시글 주변 불필요한 테두리 제거 */
+div[data-testid="stVerticalBlock"] > div[style*="border"] {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+.element-container:has(.post-card) {
+    border: none !important;
+    background: transparent !important;
+}
+/* 폼과 버튼 주변 테두리 제거 */
+.stForm {
+    border: none !important;
+    background: transparent !important;
+}
+[data-testid="column"] {
+    border: none !important;
+    background: transparent !important;
+}
 .post-card {
     background: #f5f6fa;
     border: 2px solid #d1d9e0;
