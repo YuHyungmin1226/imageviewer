@@ -627,6 +627,11 @@ try:
                 st.session_state.show_media_uploader = False
             if "show_file_uploader" not in st.session_state:
                 st.session_state.show_file_uploader = False
+            # 업로더 키를 동적으로 관리하기 위한 카운터
+            if "media_uploader_key" not in st.session_state:
+                st.session_state.media_uploader_key = 0
+            if "file_uploader_key" not in st.session_state:
+                st.session_state.file_uploader_key = 0
             
             # 게시물 내용 입력
             content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500, key="post_content")
@@ -639,6 +644,10 @@ try:
                     file_size_mb = file_info['size'] / (1024 * 1024)
                     file_type = "🎵" if file_info['type'] == "audio" else "🎬" if file_info['type'] == "video" else "🖼️" if file_info['type'] == "image" else "📄"
                     st.write(f"{file_type} {file_info['name']} ({file_size_mb:.2f} MB)")
+            
+            # 디버깅 정보 (임시)
+            st.markdown(f"🔧 **Debug**: 미디어 업로더 키: {st.session_state.media_uploader_key}, 파일 업로더 키: {st.session_state.file_uploader_key}")
+            st.markdown(f"🔧 **Debug**: 미디어 업로더 표시: {st.session_state.show_media_uploader}, 파일 업로더 표시: {st.session_state.show_file_uploader}")
             
             # 3개 컬럼으로 버튼 배치 (폼 밖에서)
             col1, col2, col3 = st.columns([1, 1, 1])
@@ -660,7 +669,7 @@ try:
                     "사진이나 영상을 선택하세요",
                     accept_multiple_files=True,
                     type=["png", "jpg", "jpeg", "gif", "bmp", "webp", "mp4", "avi", "mov", "wmv", "flv", "webm", "mkv"],
-                    key="media_uploader"
+                    key=f"media_uploader_{st.session_state.media_uploader_key}"
                 )
                 
                 if media_files:
@@ -686,18 +695,22 @@ try:
                     if new_files:
                         col_confirm, col_clear = st.columns([1, 1])
                         with col_confirm:
-                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key="media_confirm"):
+                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key=f"media_confirm_{st.session_state.media_uploader_key}"):
                                 st.session_state.selected_media_files.extend(new_files)
+                                # 업로더 키 증가로 업로더 초기화
+                                st.session_state.media_uploader_key += 1
                                 st.success("미디어 파일이 첨부되었습니다!")
                                 st.rerun()
                         with col_clear:
-                            if st.button("🗑️ 모두 초기화", use_container_width=True, key="media_clear"):
+                            if st.button("🗑️ 모두 초기화", use_container_width=True, key=f"media_clear_{st.session_state.media_uploader_key}"):
                                 st.session_state.selected_media_files = []
+                                # 업로더 키 증가로 업로더 초기화
+                                st.session_state.media_uploader_key += 1
                                 st.success("미디어 파일이 초기화되었습니다!")
                                 st.rerun()
                 
                 # 업로더 닫기 버튼
-                if st.button("❌ 닫기", use_container_width=True, key="close_media"):
+                if st.button("❌ 닫기", use_container_width=True, key=f"close_media_{st.session_state.media_uploader_key}"):
                     st.session_state.show_media_uploader = False
                     st.rerun()
             
@@ -708,7 +721,7 @@ try:
                     "음악, 문서 등의 파일을 선택하세요",
                     accept_multiple_files=True,
                     type=["mp3", "wav", "flac", "aac", "ogg", "m4a", "pdf", "txt", "doc", "docx", "xlsx", "pptx"],
-                    key="file_uploader"
+                    key=f"file_uploader_{st.session_state.file_uploader_key}"
                 )
                 
                 if other_files:
@@ -734,18 +747,22 @@ try:
                     if new_files:
                         col_confirm, col_clear = st.columns([1, 1])
                         with col_confirm:
-                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key="file_confirm"):
+                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key=f"file_confirm_{st.session_state.file_uploader_key}"):
                                 st.session_state.selected_other_files.extend(new_files)
+                                # 업로더 키 증가로 업로더 초기화
+                                st.session_state.file_uploader_key += 1
                                 st.success("파일이 첨부되었습니다!")
                                 st.rerun()
                         with col_clear:
-                            if st.button("🗑️ 모두 초기화", use_container_width=True, key="file_clear"):
+                            if st.button("🗑️ 모두 초기화", use_container_width=True, key=f"file_clear_{st.session_state.file_uploader_key}"):
                                 st.session_state.selected_other_files = []
+                                # 업로더 키 증가로 업로더 초기화
+                                st.session_state.file_uploader_key += 1
                                 st.success("파일이 초기화되었습니다!")
                                 st.rerun()
                 
                 # 업로더 닫기 버튼
-                if st.button("❌ 닫기", use_container_width=True, key="close_file"):
+                if st.button("❌ 닫기", use_container_width=True, key=f"close_file_{st.session_state.file_uploader_key}"):
                     st.session_state.show_file_uploader = False
                     st.rerun()
             
@@ -833,6 +850,9 @@ try:
                 # 업로더 표시 상태도 초기화
                 st.session_state.show_media_uploader = False
                 st.session_state.show_file_uploader = False
+                # 업로더 키도 초기화
+                st.session_state.media_uploader_key += 1
+                st.session_state.file_uploader_key += 1
                 st.rerun()
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
