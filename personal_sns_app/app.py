@@ -885,6 +885,8 @@ try:
                 comments_parts.append('</div>')
                 comments_section = ''.join(comments_parts)
                 
+                import base64
+                from pathlib import Path
                 # 첨부 파일 HTML+플레이어 생성
                 files_section = ""
                 player_placeholders = []
@@ -913,17 +915,32 @@ try:
                             </div>
                         </div>'''
                         files_parts.append(file_html)
-                        # 이미지면 썸네일+전체보기 버튼, 아니면 플레이어/다운로드 인덱스 저장
                         if file["file_type"] == "image":
-                            files_parts.append(f'__IMAGE_THUMB_{idx}__')
-                            image_fullview_placeholders.append((idx, file["saved_name"], file['original_name']))
+                            # base64로 변환해서 카드 안에 썸네일로 표시
+                            file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
+                            if os.path.exists(file_path):
+                                with open(file_path, "rb") as img_f:
+                                    img_bytes = img_f.read()
+                                    img_b64 = base64.b64encode(img_bytes).decode()
+                                    ext = Path(file_path).suffix[1:].lower()
+                                    files_parts.append(f'<div style="margin: 8px 0 0 36px; text-align:left;"><img src="data:image/{ext};base64,{img_b64}" style="max-width:250px; max-height:250px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); cursor:pointer;" /></div>')
+                            else:
+                                files_parts.append('<div style="margin: 8px 0 0 36px; color:#888;">이미지를 표시할 수 없습니다 (Streamlit Cloud 제약)</div>')
+                            # 전체보기 버튼 (key 분리)
+                            btn_key = f"btn_fullview_{post['id']}_{idx}"
+                            state_key = f"fullview_state_{post['id']}_{idx}"
+                            if state_key not in st.session_state:
+                                st.session_state[state_key] = False
+                            if st.button("🔍 전체보기", key=btn_key, help="이미지를 크게 보기", use_container_width=False):
+                                st.session_state[state_key] = not st.session_state[state_key]
+                            image_fullview_placeholders.append((idx, file["saved_name"], file['original_name'], state_key))
                         else:
                             player_placeholders.append((file["file_type"], idx, file["saved_name"], file['original_name']))
                     files_parts.append('</div>')
                     files_section = ''.join(files_parts)
                 
                 # 완전한 게시글 카드 HTML (댓글 + 첨부파일 + 댓글 포함)
-                html_card = f'''
+                st.markdown(f'''
                 <div style="
                     background: white;
                     border: 1px solid #e1e8ed;
@@ -942,32 +959,10 @@ try:
                     {files_section}
                     {comments_section}
                 </div>
-                '''
-                # 이미지 썸네일/전체보기 버튼, 오디오/비디오/다운로드를 placeholder로 분리
-                import re
-                split_html = re.split(r'(__IMAGE_THUMB_\d+__)', html_card)
-                for part in split_html:
-                    m_thumb = re.match(r'__IMAGE_THUMB_(\d+)__', part)
-                    if m_thumb:
-                        idx = int(m_thumb.group(1))
-                        file = post["files"][idx]
-                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
-                        # 썸네일(최대 250x250, 긴 쪽 맞춤)
-                        st.markdown('<div style="margin: 8px 0 0 36px;">', unsafe_allow_html=True)
-                        st.image(file_path, width=250, clamp=True, caption=None)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        # 전체보기 버튼
-                        fullview_key = f"fullview_{post['id']}_{idx}"
-                        if fullview_key not in st.session_state:
-                            st.session_state[fullview_key] = False
-                        if st.button("🔍 전체보기", key=fullview_key, help="이미지를 크게 보기", use_container_width=False):
-                            st.session_state[fullview_key] = not st.session_state[fullview_key]
-                    else:
-                        st.markdown(part, unsafe_allow_html=True)
+                ''', unsafe_allow_html=True)
                 # 전체보기 상태면 카드 아래에 원본 이미지 표시
-                for idx, saved_name, original_name in image_fullview_placeholders:
-                    fullview_key = f"fullview_{post['id']}_{idx}"
-                    if st.session_state.get(fullview_key, False):
+                for idx, saved_name, original_name, state_key in image_fullview_placeholders:
+                    if st.session_state.get(state_key, False):
                         file_path = os.path.join(UPLOADS_DIR, saved_name)
                         st.markdown('<div style="margin: 0 0 16px 36px;">', unsafe_allow_html=True)
                         st.image(file_path, caption=original_name, use_container_width=True)
