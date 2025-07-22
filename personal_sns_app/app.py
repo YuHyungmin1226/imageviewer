@@ -170,7 +170,7 @@ if 'password_changed' not in st.session_state:
 # 세션 유효성 검증
 if st.session_state.session_id:
     session_data = session_manager.validate_session(st.session_state.session_id)
-    if session_data:
+    if isinstance(session_data, dict):
         st.session_state.logged_in = True
         st.session_state.current_user = session_data.get("username")
         st.session_state.password_changed = session_data.get("password_changed", True)
