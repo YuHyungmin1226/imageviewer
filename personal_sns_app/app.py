@@ -601,26 +601,64 @@ try:
                 st.session_state.current_user = None
                 st.session_state.password_changed = False
                 st.rerun()
+            # 게시물 작성 영역
+            st.markdown("### 📝 게시물 작성")
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
-                if "file_upload_open" not in st.session_state:
-                    st.session_state.file_upload_open = False
-                col1, col2, col3 = st.columns([1, 1, 1])
+                col1, col2 = st.columns([1, 1])
                 with col1:
                     submitted = st.form_submit_button("게시", use_container_width=True)
                 with col2:
-                    if st.form_submit_button("파일 첨부", use_container_width=True):
-                        st.session_state.file_upload_open = not st.session_state.file_upload_open
-                with col3:
-                    pass
-                if st.session_state.file_upload_open:
-                    files = st.file_uploader(
-                        "파일 첨부 (최대 10개, 로컬에서만 저장됨)", 
-                        accept_multiple_files=True, 
-                        type=["png","jpg","jpeg","gif","bmp","webp","mp4","avi","mov","wmv","flv","webm","mkv","mp3","wav","flac","aac","ogg","m4a"]
-                    )
-                else:
-                    files = []
+                    # 폼 안에서는 버튼만 표시용으로 사용
+                    st.form_submit_button("파일 첨부 영역으로 이동", use_container_width=True, disabled=True)
+            
+            # 파일 첨부 영역 (별도 구분)
+            st.markdown("---")  # 구분선
+            st.markdown("### 📎 파일 첨부")
+            if "file_upload_open" not in st.session_state:
+                st.session_state.file_upload_open = False
+            
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                if st.button("파일 첨부 열기/닫기", use_container_width=True):
+                    st.session_state.file_upload_open = not st.session_state.file_upload_open
+            with col2:
+                if st.session_state.file_upload_open and st.button("파일 선택 초기화", use_container_width=True):
+                    st.session_state.uploaded_files = []
+                    st.success("파일 선택이 초기화되었습니다.")
+            with col3:
+                pass
+            
+            if st.session_state.file_upload_open:
+                st.markdown("""
+                <div style="
+                    background: #f8f9fa;
+                    border: 2px dashed #dee2e6;
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin: 15px 0;
+                    text-align: center;
+                ">
+                """, unsafe_allow_html=True)
+                
+                files = st.file_uploader(
+                    "📁 파일을 선택하거나 드래그 앤 드롭하세요 (최대 10개)",
+                    accept_multiple_files=True, 
+                    type=["png","jpg","jpeg","gif","bmp","webp","mp4","avi","mov","wmv","flv","webm","mkv","mp3","wav","flac","aac","ogg","m4a"],
+                    help="지원 형식: 이미지, 비디오, 오디오 파일"
+                )
+                
+                if files:
+                    st.markdown("**선택된 파일:**")
+                    for file in files:
+                        file_size = len(file.getvalue()) if hasattr(file, 'getvalue') else file.size
+                        file_size_mb = file_size / (1024 * 1024)
+                        st.write(f"• {file.name} ({file_size_mb:.2f} MB)")
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                files = []
+                st.info("👆 위의 '파일 첨부 열기/닫기' 버튼을 클릭하여 파일을 첨부할 수 있습니다.")
                 if submitted and content.strip():
                     uploaded_files = []
                     for file in files or []:
