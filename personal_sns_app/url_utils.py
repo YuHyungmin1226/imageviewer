@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import streamlit as st
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import time
 
 class URLPreviewGenerator:
@@ -215,7 +215,7 @@ class URLPreviewGenerator:
         
         st.markdown(preview_html, unsafe_allow_html=True)
     
-    def process_text_with_urls(self, text: str) -> tuple[str, List[Dict]]:
+    def process_text_with_urls(self, text: str) -> Tuple[str, List[Dict]]:
         """텍스트에서 URL을 처리하고 미리보기 데이터 반환"""
         urls = self.extract_urls(text)
         previews = []
