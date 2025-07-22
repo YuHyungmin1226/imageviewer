@@ -8,6 +8,9 @@ import io
 import hashlib
 
 # Supabase 연동
+USE_SUPABASE = False
+supabase = None
+
 try:
     from supabase import create_client
     # Streamlit Secrets에서 Supabase 설정 가져오기
@@ -20,6 +23,11 @@ try:
         # Supabase 설정이 없으면 로컬 모드로 실행
         USE_SUPABASE = False
         supabase = None
+except ImportError:
+    # supabase 패키지가 설치되지 않은 경우
+    st.info("Supabase 패키지가 설치되지 않아 로컬 모드로 실행됩니다.")
+    USE_SUPABASE = False
+    supabase = None
 except Exception as e:
     st.warning(f"Supabase 연결 실패, 로컬 모드로 실행됩니다: {e}")
     USE_SUPABASE = False
