@@ -220,6 +220,41 @@ except Exception as e:
 # CSS 스타일
 st.markdown("""
 <style>
+body, .stApp, .block-container {
+    background: #f5f6fa !important;
+    color: #222 !important;
+}
+
+/* 다크모드 대응 */
+@media (prefers-color-scheme: dark) {
+    body, .stApp, .block-container {
+        background: #181c1f !important;
+        color: #f5f6fa !important;
+    }
+    .post-card {
+        background: #23272b !important;
+        border: 2px solid #444 !important;
+        color: #f5f6fa !important;
+    }
+    .post-header, .post-author, .post-time {
+        color: #90caf9 !important;
+    }
+    .url-preview-card, .youtube-preview-card {
+        background: #23272b !important;
+        border: 1px solid #444 !important;
+        color: #f5f6fa !important;
+    }
+    .url-preview-title, .youtube-title {
+        color: #fff !important;
+    }
+    .url-preview-description, .url-preview-site, .youtube-channel, .youtube-domain {
+        color: #b0b8c1 !important;
+    }
+    .stTextInput>div>div>input, .stTextArea textarea {
+        background: #23272b !important;
+        color: #f5f6fa !important;
+    }
+}
 .stTextInput>div>div>input, .stTextArea textarea {
     font-size: 18px;
 }
@@ -867,9 +902,6 @@ try:
                 comments_parts.append('</div>')
                 comments_section = ''.join(comments_parts)
 
-                # 댓글 영역을 별도로 HTML로 먼저 출력 (이중 escape 방지)
-                st.markdown(comments_section, unsafe_allow_html=True)
-
                 import base64
                 from pathlib import Path
                 files_section = ""
@@ -939,7 +971,7 @@ try:
                     </div>
                     <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>
                     {files_section}
-                    {''} <!-- comments_section은 별도 출력 -->
+                    {comments_section}
                 </div>
                 ''', unsafe_allow_html=True)
                 
