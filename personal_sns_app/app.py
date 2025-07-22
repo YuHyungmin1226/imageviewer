@@ -626,10 +626,12 @@ try:
                     submitted = st.form_submit_button("게시", use_container_width=True)
                 with col2:
                     file_attach_btn = st.form_submit_button("파일 첨부", use_container_width=True)
-                    if file_attach_btn:
-                        st.session_state.file_upload_popup = True
-                        st.session_state.file_upload_complete = False
-                        st.rerun()
+            
+            # 파일 첨부 버튼 처리 (폼 외부에서)
+            if file_attach_btn:
+                st.session_state.file_upload_popup = True
+                st.session_state.file_upload_complete = False
+                st.rerun()
             
             # 파일 첨부 팝업
             if st.session_state.file_upload_popup:
@@ -678,14 +680,23 @@ try:
                         st.markdown("**선택된 파일:**")
                         file_list = []
                         for file in files:
-                            file_size = len(file.getvalue()) if hasattr(file, 'getvalue') else file.size
-                            file_size_mb = file_size / (1024 * 1024)
-                            st.write(f"• {file.name} ({file_size_mb:.2f} MB)")
-                            file_list.append({
-                                'name': file.name,
-                                'size': file_size_mb,
-                                'file_obj': file
-                            })
+                            # 파일 스트림을 안전하게 처리
+                            try:
+                                # 파일 크기 계산
+                                file.seek(0)  # 스트림 포인터를 처음으로 리셋
+                                file_content = file.read()
+                                file.seek(0)  # 다시 리셋 (나중에 읽을 수 있도록)
+                                file_size_mb = len(file_content) / (1024 * 1024)
+                                
+                                st.write(f"• {file.name} ({file_size_mb:.2f} MB)")
+                                file_list.append({
+                                    'name': file.name,
+                                    'size': file_size_mb,
+                                    'file_obj': file,
+                                    'file_content': file_content  # 파일 내용 저장
+                                })
+                            except Exception as e:
+                                st.error(f"파일 {file.name} 처리 중 오류: {e}")
                         st.session_state.selected_files = file_list
                     
                     col1, col2, col3 = st.columns([1, 1, 1])
@@ -719,20 +730,22 @@ try:
             
             # 게시글 처리 로직
             if submitted and content.strip():
-                # 선택된 파일들을 처리
-                files = [file_info['file_obj'] for file_info in st.session_state.selected_files] if st.session_state.selected_files else []
+                # 선택된 파일들을 처리 (파일 내용 사용)
                 uploaded_files = []
-                for file in files or []:
+                for file_info in st.session_state.selected_files:
                     try:
-                        file_id = f"{uuid.uuid4().hex}_{file.name}"
+                        file_id = f"{uuid.uuid4().hex}_{file_info['name']}"
                         file_path = os.path.join(UPLOADS_DIR, file_id)
+                        
+                        # 저장된 파일 내용 사용
                         with open(file_path, "wb") as f_out:
-                            f_out.write(file.read())
+                            f_out.write(file_info['file_content'])
+                        
                         uploaded_files.append({
-                            "original_name": file.name,
+                            "original_name": file_info['name'],
                             "saved_name": file_id,
-                            "file_type": file.type,
-                            "size": os.path.getsize(file_path)
+                            "file_type": getattr(file_info['file_obj'], 'type', 'application/octet-stream'),
+                            "size": len(file_info['file_content'])
                         })
                     except Exception as e:
                         st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
