@@ -455,41 +455,42 @@ div[data-testid="stVerticalBlock"] > div[style*="border"] {
 
 try:
     if not st.session_state.logged_in:
-        st.title("로그인")
-        auth_mode = st.radio(" ", ["로그인", "회원가입"], index=0, horizontal=True, label_visibility="collapsed")
-        if auth_mode == "회원가입":
-            st.subheader("새 계정 만들기")
-            with st.form("signup_form"):
-                new_username = st.text_input("사용자명", key="signup_username")
-                new_password = st.text_input("비밀번호", type="password", key="signup_password")
-                confirm_password = st.text_input("비밀번호 확인", type="password", key="signup_confirm")
-                signup_submitted = st.form_submit_button("회원가입")
-                if signup_submitted:
-                    if new_password != confirm_password:
-                        st.error("비밀번호가 일치하지 않습니다.")
-                    else:
-                        success, message = secure_auth.register_user(new_username, new_password)
+        # 중복 타이틀 제거, 좌측 정렬 컨테이너 적용
+        with st.container():
+            st.markdown('<div style="margin-top:40px; margin-bottom:32px; text-align:left;"><span style="font-size:38px; font-weight:700; letter-spacing:-2px;">로그인</span></div>', unsafe_allow_html=True)
+            auth_mode = st.radio(" ", ["로그인", "회원가입"], index=0, horizontal=True, label_visibility="collapsed")
+            if auth_mode == "회원가입":
+                st.markdown('<div style="margin-bottom:18px; text-align:left;"><span style="font-size:22px; font-weight:600;">회원가입</span></div>', unsafe_allow_html=True)
+                with st.form("signup_form"):
+                    new_username = st.text_input("사용자명", key="signup_username")
+                    new_password = st.text_input("비밀번호", type="password", key="signup_password")
+                    confirm_password = st.text_input("비밀번호 확인", type="password", key="signup_confirm")
+                    signup_submitted = st.form_submit_button("회원가입")
+                    if signup_submitted:
+                        if new_password != confirm_password:
+                            st.error("비밀번호가 일치하지 않습니다.")
+                        else:
+                            success, message = secure_auth.register_user(new_username, new_password)
+                            if success:
+                                st.success(message)
+                            else:
+                                st.error(message)
+            else:
+                with st.form("login_form"):
+                    username = st.text_input("사용자명", key="login_username")
+                    password = st.text_input("비밀번호", type="password", key="login_password")
+                    login_submitted = st.form_submit_button("로그인")
+                    if login_submitted:
+                        success, session_id, message = secure_auth.login(username, password)
                         if success:
+                            st.session_state.session_id = session_id
+                            st.session_state.logged_in = True
+                            st.session_state.current_user = username
+                            st.session_state.password_changed = not (username == "admin" and password == "admin123")
                             st.success(message)
+                            st.rerun()
                         else:
                             st.error(message)
-        else:
-            st.subheader("로그인")
-            with st.form("login_form"):
-                username = st.text_input("사용자명", key="login_username")
-                password = st.text_input("비밀번호", type="password", key="login_password")
-                login_submitted = st.form_submit_button("로그인")
-                if login_submitted:
-                    success, session_id, message = secure_auth.login(username, password)
-                    if success:
-                        st.session_state.session_id = session_id
-                        st.session_state.logged_in = True
-                        st.session_state.current_user = username
-                        st.session_state.password_changed = not (username == "admin" and password == "admin123")
-                        st.success(message)
-                        st.rerun()
-                    else:
-                        st.error(message)
     else:
         # 비밀번호 변경이 필요한 경우 (admin 계정이 기본 비밀번호로 로그인한 경우)
         if st.session_state.current_user == "admin" and not st.session_state.password_changed:
