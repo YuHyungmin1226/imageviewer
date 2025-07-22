@@ -592,6 +592,7 @@ try:
                 st.rerun()
             # 게시물 작성 영역
             st.markdown("### 📝 게시물 작성")
+            st.info("💡 현재 텍스트와 URL 링크만 지원됩니다. (파일 첨부 기능은 제거되었습니다)")
             
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
