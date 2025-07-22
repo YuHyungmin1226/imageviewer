@@ -675,20 +675,26 @@ try:
                 url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
                 content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', content_with_links)
                 
-                # 댓글 HTML 생성
-                comments_html = ""
+                # 댓글 영역 HTML 생성 (항상 표시)
+                comments_section = '<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">'
+                
+                # 기존 댓글들 표시
                 if post.get("comments", []):
-                    comments_html = '<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">'
                     for c in post.get("comments", []):
-                        comments_html += f'''
-                        <div style="margin-bottom: 12px; padding: 8px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="font-weight: 600; color: #1da1f2; font-size: 14px;">{c['author']} 
-                                <span style="color: #666; font-weight: normal; font-size: 12px;">{c['timestamp'][:16]}</span>
+                        comments_section += f'''
+                        <div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;">
+                            <div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">
+                                {c['author']} 
+                                <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span>
                             </div>
-                            <div style="margin-top: 4px; font-size: 14px;">{c['content']}</div>
+                            <div style="font-size: 14px; line-height: 1.4; color: #333;">{c['content']}</div>
                         </div>
                         '''
-                    comments_html += '</div>'
+                else:
+                    # 댓글이 없을 때 안내 메시지
+                    comments_section += '<div style="color: #999; font-size: 14px; text-align: center; padding: 12px;">아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!</div>'
+                
+                comments_section += '</div>'
                 
                 # 완전한 게시글 카드 HTML (댓글 포함)
                 st.markdown(f'''
@@ -706,8 +712,8 @@ try:
                         <span style="font-weight: 600; color: #1da1f2; margin: 0;">{post["author"]}</span>
                         <span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>
                     </div>
-                    <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap;">{content_with_links}</div>
-                    {comments_html}
+                    <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>
+                    {comments_section}
                 </div>
                 ''', unsafe_allow_html=True)
                 
@@ -756,21 +762,33 @@ try:
                             safe_save_json(POSTS_PATH, posts)
                         st.rerun()
                 
-                # 댓글 입력 폼 (카드 밖, 댓글 버튼 눌렀을 때만 표시)
+                # 댓글 입력 폼 (댓글 버튼 눌렀을 때만 표시)
                 if "comment_open" in st.session_state and st.session_state["comment_open"].get(post['id'], False):
+                    st.markdown("**💬 댓글 작성**")
                     with st.form(f"comment_form_{post['id']}", clear_on_submit=True):
-                        comment_text = st.text_input("댓글을 입력하세요", key=f"comment_input_{post['id']}")
-                        comment_submit = st.form_submit_button("댓글 등록")
+                        comment_text = st.text_area("댓글을 입력하세요", key=f"comment_input_{post['id']}", height=80, placeholder="댓글을 남겨보세요...")
+                        col_submit, col_cancel = st.columns([1, 1])
+                        with col_submit:
+                            comment_submit = st.form_submit_button("댓글 등록", use_container_width=True, type="primary")
+                        with col_cancel:
+                            if st.form_submit_button("취소", use_container_width=True):
+                                st.session_state["comment_open"][post['id']] = False
+                                st.rerun()
+                        
                         if comment_submit and comment_text.strip():
                             post.setdefault("comments", []).append({
                                 "author": st.session_state.current_user,
-                                "content": comment_text,
+                                "content": comment_text.strip(),
                                 "timestamp": datetime.now().isoformat()
                             })
                             if USE_SUPABASE:
                                 supabase_update_post(post['id'], {"comments": post["comments"]})
                             else:
                                 safe_save_json(POSTS_PATH, posts)
+                            
+                            # 댓글 입력창 닫기
+                            st.session_state["comment_open"][post['id']] = False
+                            st.success("댓글이 등록되었습니다!")
                             st.rerun()
 except Exception as e:
     st.error(f"예기치 않은 오류가 발생했습니다: {e}") 
