@@ -14,7 +14,7 @@ supabase = None
 try:
     from supabase import create_client
     # Streamlit Secrets에서 Supabase 설정 가져오기
-    if 'supabase_url' in st.secrets and 'supabase_key' in st.secrets:
+    if hasattr(st, 'secrets') and 'supabase_url' in st.secrets and 'supabase_key' in st.secrets:
         supabase_url = st.secrets.supabase_url
         supabase_key = st.secrets.supabase_key
         supabase = create_client(supabase_url, supabase_key)
@@ -25,11 +25,10 @@ try:
         supabase = None
 except ImportError:
     # supabase 패키지가 설치되지 않은 경우
-    st.info("Supabase 패키지가 설치되지 않아 로컬 모드로 실행됩니다.")
     USE_SUPABASE = False
     supabase = None
 except Exception as e:
-    st.warning(f"Supabase 연결 실패, 로컬 모드로 실행됩니다: {e}")
+    # Supabase 연결 실패 시 로컬 모드로 실행
     USE_SUPABASE = False
     supabase = None
 
@@ -169,12 +168,17 @@ if not st.session_state.logged_in:
         st.session_state.password_changed = session_data.get("password_changed", True)
 
 # 데이터 로드
-if USE_SUPABASE:
-    posts = supabase_load_posts()
-    users = supabase_load_users()
-else:
-    posts = safe_load_json(POSTS_PATH, [])
-    users = safe_load_json(USERS_PATH, {"admin": hash_password("admin123")})
+try:
+    if USE_SUPABASE:
+        posts = supabase_load_posts()
+        users = supabase_load_users()
+    else:
+        posts = safe_load_json(POSTS_PATH, [])
+        users = safe_load_json(USERS_PATH, {"admin": hash_password("admin123")})
+except Exception as e:
+    # 데이터 로드 실패 시 기본값 사용
+    posts = []
+    users = {"admin": hash_password("admin123")}
 
 # CSS 스타일
 st.markdown("""
