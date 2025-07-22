@@ -3,8 +3,7 @@ import os
 import json
 from datetime import datetime
 import uuid
-from PIL import Image
-import io
+# PIL과 io는 파일 첨부 기능 제거로 불필요
 import hashlib
 from secure_auth import SecureAuth
 from session_manager import SessionManager
@@ -221,19 +220,11 @@ except Exception as e:
 # CSS 스타일
 st.markdown("""
 <style>
-.stTextInput>div>div>input, .stTextArea textarea, .stFileUploader>label {
+.stTextInput>div>div>input, .stTextArea textarea {
     font-size: 18px;
 }
-.stTextInput, .stTextArea, .stFileUploader, .stButton {
+.stTextInput, .stTextArea, .stButton {
     margin-bottom: 18px;
-}
-.stFileUploader {
-    border: none !important;
-    background: transparent !important;
-}
-.stFileUploader > div {
-    border: none !important;
-    background: transparent !important;
 }
 .post-card {
     background: #f5f6fa;
@@ -257,9 +248,7 @@ st.markdown("""
     color: #aaa;
     font-size: 13px;
 }
-.stFileUploader button {
-    display: none !important;
-}
+
 .stButton > button {
     margin-right: 10px;
 }
@@ -604,118 +593,10 @@ try:
             # 게시물 작성 영역
             st.markdown("### 📝 게시물 작성")
             
-            # 세션 상태 초기화
-            if "file_upload_popup" not in st.session_state:
-                st.session_state.file_upload_popup = False
-            if "selected_files" not in st.session_state:
-                st.session_state.selected_files = []
-            if "file_upload_complete" not in st.session_state:
-                st.session_state.file_upload_complete = False
-            
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
                 
-                # 첨부된 파일 목록 표시
-                if st.session_state.selected_files:
-                    st.markdown("**📎 첨부된 파일:**")
-                    for file_info in st.session_state.selected_files:
-                        st.write(f"• {file_info['name']} ({file_info['size']:.2f} MB)")
-                
-                col1, col2 = st.columns([1, 1])
-                with col1:
-                    submitted = st.form_submit_button("게시", use_container_width=True)
-                with col2:
-                    file_attach_btn = st.form_submit_button("파일 첨부", use_container_width=True)
-            
-            # 파일 첨부 버튼 처리 (폼 외부에서)
-            if file_attach_btn:
-                st.session_state.file_upload_popup = True
-                st.session_state.file_upload_complete = False
-                st.rerun()
-            
-            # 파일 첨부 팝업
-            if st.session_state.file_upload_popup:
-                st.markdown("""
-                <div style="
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.5);
-                    z-index: 9999;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                " id="popup-overlay">
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # 팝업 컨테이너
-                popup_container = st.container()
-                with popup_container:
-                    st.markdown("""
-                    <div style="
-                        background: white;
-                        border-radius: 16px;
-                        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                        padding: 30px;
-                        margin: 20px auto;
-                        max-width: 600px;
-                        border: 2px solid #dee2e6;
-                    ">
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown("### 📎 파일 첨부")
-                    
-                    files = st.file_uploader(
-                        "📁 파일을 선택하거나 드래그 앤 드롭하세요 (최대 10개)",
-                        accept_multiple_files=True, 
-                        type=["png","jpg","jpeg","gif","bmp","webp","mp4","avi","mov","wmv","flv","webm","mkv","mp3","wav","flac","aac","ogg","m4a"],
-                        help="지원 형식: 이미지, 비디오, 오디오 파일",
-                        key="popup_file_uploader"
-                    )
-                    
-                    if files:
-                        st.markdown("**선택된 파일:**")
-                        file_list = []
-                        for file in files:
-                            # 파일 스트림을 안전하게 처리
-                            try:
-                                # 파일 크기 계산
-                                file.seek(0)  # 스트림 포인터를 처음으로 리셋
-                                file_content = file.read()
-                                file.seek(0)  # 다시 리셋 (나중에 읽을 수 있도록)
-                                file_size_mb = len(file_content) / (1024 * 1024)
-                                
-                                st.write(f"• {file.name} ({file_size_mb:.2f} MB)")
-                                file_list.append({
-                                    'name': file.name,
-                                    'size': file_size_mb,
-                                    'file_obj': file,
-                                    'file_content': file_content  # 파일 내용 저장
-                                })
-                            except Exception as e:
-                                st.error(f"파일 {file.name} 처리 중 오류: {e}")
-                        st.session_state.selected_files = file_list
-                    
-                    col1, col2, col3 = st.columns([1, 1, 1])
-                    with col1:
-                        if st.button("첨부 완료", use_container_width=True, type="primary"):
-                            st.session_state.file_upload_popup = False
-                            st.session_state.file_upload_complete = True
-                            st.success("파일 첨부가 완료되었습니다!")
-                            st.rerun()
-                    with col2:
-                        if st.button("초기화", use_container_width=True):
-                            st.session_state.selected_files = []
-                            st.rerun()
-                    with col3:
-                        if st.button("취소", use_container_width=True):
-                            st.session_state.file_upload_popup = False
-                            st.rerun()
-                    
-                    st.markdown("</div>", unsafe_allow_html=True)
+                submitted = st.form_submit_button("게시", use_container_width=True, type="primary")
             
             # 게시글과 기존 게시글 구분선
             st.markdown("""
@@ -730,27 +611,6 @@ try:
             
             # 게시글 처리 로직
             if submitted and content.strip():
-                # 선택된 파일들을 처리 (파일 내용 사용)
-                uploaded_files = []
-                for file_info in st.session_state.selected_files:
-                    try:
-                        file_id = f"{uuid.uuid4().hex}_{file_info['name']}"
-                        file_path = os.path.join(UPLOADS_DIR, file_id)
-                        
-                        # 저장된 파일 내용 사용
-                        with open(file_path, "wb") as f_out:
-                            f_out.write(file_info['file_content'])
-                        
-                        uploaded_files.append({
-                            "original_name": file_info['name'],
-                            "saved_name": file_id,
-                            "file_type": getattr(file_info['file_obj'], 'type', 'application/octet-stream'),
-                            "size": len(file_info['file_content'])
-                        })
-                    except Exception as e:
-                        st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
-                        # 파일 업로드 실패해도 게시글은 작성 가능
-                
                 # URL 미리보기 처리
                 processed_content, url_previews = url_preview_generator.process_text_with_urls(content)
                 
@@ -758,7 +618,7 @@ try:
                     "id": str(uuid.uuid4()),
                     "content": content,
                     "author": st.session_state.current_user,
-                    "files": uploaded_files,
+                    "files": [],  # 파일 첨부 기능 제거로 항상 빈 배열
                     "url_previews": url_previews,
                     "created_at": datetime.now().isoformat(),
                     "comments": [],
@@ -779,8 +639,6 @@ try:
                     safe_save_json(POSTS_PATH, posts)
                     st.success("게시물이 등록되었습니다!")
                 
-                # 파일 선택 초기화
-                st.session_state.selected_files = []
                 st.rerun()
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
@@ -833,33 +691,7 @@ try:
                                         url_preview_generator.render_url_preview(preview)
                                 except:
                                     pass  # 미리보기 생성 실패시 무시
-                    for file in post.get("files", []):
-                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
-                        audio_exts = [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg"]
-                        try:
-                            if any(file_path.lower().endswith(ext) for ext in audio_exts):
-                                st.audio(file_path)
-                            elif "image" in file["file_type"] or file_path.lower().endswith((".png",".jpg",".jpeg",".gif",".bmp",".webp")):
-                                with Image.open(file_path) as img:
-                                    if hasattr(img, '_getexif') and img._getexif() is not None:
-                                        exif = img._getexif()
-                                        orientation = exif.get(274)
-                                        if orientation == 3:
-                                            img = img.rotate(180, expand=True)
-                                        elif orientation == 6:
-                                            img = img.rotate(270, expand=True)
-                                        elif orientation == 8:
-                                            img = img.rotate(90, expand=True)
-                                    img_byte_arr = io.BytesIO()
-                                    img.save(img_byte_arr, format=img.format or 'JPEG')
-                                    img_byte_arr.seek(0)
-                                    st.image(img_byte_arr, use_container_width=True)
-                            elif "video" in file["file_type"] or file_path.lower().endswith((".mp4",".avi",".mov",".wmv",".flv",".webm",".mkv")):
-                                st.video(file_path)
-                            else:
-                                st.write(f"첨부파일: {file['original_name']}")
-                        except Exception as e:
-                            st.warning(f"첨부파일 표시 실패 (Streamlit Cloud에서는 파일 접근이 제한됨): {e}")
+                    # 파일 첨부 기능 제거됨
                     col1, col2, col3 = st.columns([1,1,1])
                     if col1.button("댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
                         if "comment_open" not in st.session_state:
@@ -877,14 +709,7 @@ try:
                             st.rerun()
                     if post["author"] == st.session_state.current_user or st.session_state.current_user == "admin":
                         if col3.button("삭제", key=f"delete_{post['id']}", use_container_width=True):
-                            for file in post.get("files", []):
-                                file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
-                                try:
-                                    if os.path.exists(file_path):
-                                        os.remove(file_path)
-                                except Exception:
-                                    # Streamlit Cloud에서는 파일 삭제가 제한적
-                                    pass
+                            # 파일 첨부 기능 제거로 파일 삭제 코드도 제거됨
                             if USE_SUPABASE:
                                 if supabase_delete_post(post['id']):
                                     posts.remove(post)
