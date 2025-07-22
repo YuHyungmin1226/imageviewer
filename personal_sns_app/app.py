@@ -669,38 +669,31 @@ try:
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
             for idx, post in enumerate(visible_posts):
-                st.markdown('''
-                <div class="post-card" style="
-                    background: #f8f9fa !important;
-                    border: 2px solid #dee2e6 !important;
-                    border-radius: 12px !important;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
-                    padding: 20px !important;
-                    margin-bottom: 20px !important;
-                    display: block !important;
-                    width: 100% !important;
-                    box-sizing: border-box !important;
-                ">
-                ''', unsafe_allow_html=True)
-                st.markdown(
-                    f'<div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 12px !important; width: 100% !important;">'
-                    f'<span style="font-weight: 600 !important; color: #1da1f2 !important; margin: 0 !important;">{post["author"]}</span>'
-                    f'<span style="color: #666 !important; font-size: 13px !important; margin: 0 !important;">{post["created_at"][:16]}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-                # 게시글 내용 표시
-                content_with_links = post["content"]
-                
                 # URL을 클릭 가능한 링크로 변환
                 import re
+                content_with_links = post["content"]
                 url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
                 content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', content_with_links)
                 
-                st.markdown(
-                    f'<div style="font-size:17px; margin-bottom:10px; white-space:pre-wrap">{content_with_links}</div>',
-                    unsafe_allow_html=True
-                )
+                # 완전한 게시글 카드 HTML
+                st.markdown(f'''
+                <div style="
+                    background: white;
+                    border: 1px solid #e1e8ed;
+                    border-radius: 16px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                    padding: 24px;
+                    margin-bottom: 16px;
+                    width: 100%;
+                    box-sizing: border-box;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-weight: 600; color: #1da1f2; margin: 0;">{post["author"]}</span>
+                        <span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>
+                    </div>
+                    <div style="font-size: 17px; margin-bottom: 10px; white-space: pre-wrap;">{content_with_links}</div>
+                </div>
+                ''', unsafe_allow_html=True)
                 
                 # URL 미리보기 표시
                 if post.get("url_previews"):
@@ -717,7 +710,8 @@ try:
                                     url_preview_generator.render_url_preview(preview)
                             except:
                                 pass  # 미리보기 생성 실패시 무시
-                # 파일 첨부 기능 제거됨
+                
+                # 버튼들
                 col1, col2, col3 = st.columns([1,1,1])
                 if col1.button("댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
                     if "comment_open" not in st.session_state:
@@ -743,6 +737,8 @@ try:
                             posts.remove(post)
                             safe_save_json(POSTS_PATH, posts)
                         st.rerun()
+                
+                # 댓글 입력
                 if "comment_open" in st.session_state and st.session_state["comment_open"].get(post['id'], False):
                     with st.form(f"comment_form_{post['id']}", clear_on_submit=True):
                         comment_text = st.text_input("댓글을 입력하세요", key=f"comment_input_{post['id']}")
@@ -758,9 +754,10 @@ try:
                             else:
                                 safe_save_json(POSTS_PATH, posts)
                             st.rerun()
+                
+                # 댓글 표시
                 if post.get("comments", []):
                     for c in post.get("comments", []):
                         st.markdown(f"<div style='margin-left:10px; margin-bottom:4px; font-size:15px;'><b>{c['author']}</b> <span style='color:#aaa;font-size:12px'>{c['timestamp'][:16]}</span><br>{c['content']}</div>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
 except Exception as e:
     st.error(f"예기치 않은 오류가 발생했습니다: {e}") 
