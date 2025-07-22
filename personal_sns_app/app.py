@@ -887,59 +887,57 @@ try:
                 
                 import base64
                 from pathlib import Path
-                # 첨부 파일 HTML+플레이어 생성
                 files_section = ""
-                player_placeholders = []
-                image_fullview_placeholders = []
                 if post.get("files", []):
                     files_parts = []
                     files_parts.append('<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">')
                     files_parts.append('<div style="font-weight: 600; color: #666; font-size: 14px; margin-bottom: 12px;">📎 첨부된 파일</div>')
-                    
                     for idx, file in enumerate(post.get("files", [])):
-                        file_size_mb = file.get('size', 0) / (1024 * 1024)
-                        file_type_icon = "🎵" if file["file_type"] == "audio" else "🎬" if file["file_type"] == "video" else "🖼️" if file["file_type"] == "image" else "📄"
-                        file_html = f'''<div style="
-                            background: #f8f9fa;
-                            border: 1px solid #e1e8ed;
-                            border-radius: 8px;
-                            padding: 12px;
-                            margin: 8px 0 0 0;
-                            display: flex;
-                            align-items: center;
-                        ">
-                            <span style="font-size: 20px; margin-right: 12px;">{file_type_icon}</span>
-                            <div>
-                                <div style="font-weight: 500; font-size: 14px;">{html.escape(file['original_name'])}</div>
-                                <div style="color: #666; font-size: 12px;">{file_size_mb:.2f} MB • {file["file_type"]}</div>
-                            </div>
-                        </div>'''
-                        files_parts.append(file_html)
-                        if file["file_type"] == "image":
-                            # base64로 변환해서 카드 안에 썸네일로 표시
-                            file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
-                            if os.path.exists(file_path):
-                                with open(file_path, "rb") as img_f:
-                                    img_bytes = img_f.read()
-                                    img_b64 = base64.b64encode(img_bytes).decode()
-                                    ext = Path(file_path).suffix[1:].lower()
-                                    files_parts.append(f'<div style="margin: 8px 0 0 36px; text-align:left;"><img src="data:image/{ext};base64,{img_b64}" style="max-width:250px; max-height:250px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); cursor:pointer;" /></div>')
+                        file_type = file["file_type"]
+                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
+                        ext = Path(file_path).suffix[1:].lower()
+                        if os.path.exists(file_path):
+                            with open(file_path, "rb") as f:
+                                file_bytes = f.read()
+                                file_b64 = base64.b64encode(file_bytes).decode()
+                            if file_type == "image":
+                                files_parts.append(f'''
+                                <div style="text-align:center; margin: 16px 0;">
+                                    <img src="data:image/{ext};base64,{file_b64}" style="max-width:250px; max-height:250px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); display:block; margin:0 auto;" />
+                                    <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
+                                </div>
+                                ''')
+                            elif file_type == "audio":
+                                files_parts.append(f'''
+                                <div style="text-align:center; margin: 16px 0;">
+                                    <audio controls style="width: 100%; max-width: 350px; margin:0 auto; display:block;">
+                                        <source src="data:audio/{ext};base64,{file_b64}" type="audio/{ext}">
+                                        지원되지 않는 오디오 형식입니다.
+                                    </audio>
+                                    <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
+                                </div>
+                                ''')
+                            elif file_type == "video":
+                                files_parts.append(f'''
+                                <div style="text-align:center; margin: 16px 0;">
+                                    <video controls style="width: 100%; max-width: 350px; margin:0 auto; display:block; border-radius:8px;">
+                                        <source src="data:video/{ext};base64,{file_b64}" type="video/{ext}">
+                                        지원되지 않는 비디오 형식입니다.
+                                    </video>
+                                    <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
+                                </div>
+                                ''')
                             else:
-                                files_parts.append('<div style="margin: 8px 0 0 36px; color:#888;">이미지를 표시할 수 없습니다 (Streamlit Cloud 제약)</div>')
-                            # 전체보기 버튼 (key 분리)
-                            btn_key = f"btn_fullview_{post['id']}_{idx}"
-                            state_key = f"fullview_state_{post['id']}_{idx}"
-                            if state_key not in st.session_state:
-                                st.session_state[state_key] = False
-                            if st.button("🔍 전체보기", key=btn_key, help="이미지를 크게 보기", use_container_width=False):
-                                st.session_state[state_key] = not st.session_state[state_key]
-                            image_fullview_placeholders.append((idx, file["saved_name"], file['original_name'], state_key))
+                                # 문서 등 기타 파일은 다운로드 버튼만 제공
+                                files_parts.append(f'''
+                                <div style="text-align:center; margin: 16px 0;">
+                                    <a href="data:application/octet-stream;base64,{file_b64}" download="{html.escape(file['original_name'])}" style="display:inline-block; padding:8px 16px; background:#e1e8ed; color:#333; border-radius:6px; text-decoration:none; font-size:14px;">📥 {html.escape(file['original_name'])} 다운로드</a>
+                                </div>
+                                ''')
                         else:
-                            player_placeholders.append((file["file_type"], idx, file["saved_name"], file['original_name']))
+                            files_parts.append(f'<div style="color:#888; font-size:13px; margin:16px 0; text-align:center;">파일을 표시할 수 없습니다 (Streamlit Cloud 제약)</div>')
                     files_parts.append('</div>')
                     files_section = ''.join(files_parts)
-                
-                # 완전한 게시글 카드 HTML (댓글 + 첨부파일 + 댓글 포함)
                 st.markdown(f'''
                 <div style="
                     background: white;
@@ -960,48 +958,6 @@ try:
                     {comments_section}
                 </div>
                 ''', unsafe_allow_html=True)
-                # 전체보기 상태면 카드 아래에 원본 이미지 표시
-                for idx, saved_name, original_name, state_key in image_fullview_placeholders:
-                    if st.session_state.get(state_key, False):
-                        file_path = os.path.join(UPLOADS_DIR, saved_name)
-                        st.markdown('<div style="margin: 0 0 16px 36px;">', unsafe_allow_html=True)
-                        st.image(file_path, caption=original_name, use_container_width=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                # 오디오/비디오/다운로드는 카드 바로 아래에 최대한 붙여서 표시
-                for file_type, idx, saved_name, original_name in player_placeholders:
-                    file_path = os.path.join(UPLOADS_DIR, saved_name)
-                    style = {'audio': 'margin-top:0;margin-bottom:16px;',
-                             'video': 'margin-top:0;margin-bottom:16px;',
-                             'image': 'margin-top:0;margin-bottom:16px;',
-                             'document': 'margin-top:0;margin-bottom:16px;'}[file_type if file_type in ['audio','video','image'] else 'document']
-                    if file_type == "audio":
-                        if os.path.exists(file_path):
-                            st.markdown(f'<div style="{style}">', unsafe_allow_html=True)
-                            st.audio(file_path)
-                            st.markdown('</div>', unsafe_allow_html=True)
-                        else:
-                            st.markdown(f'<div style="color:#888; font-size:13px; margin:4px 0 8px 36px;{style}">파일을 재생할 수 없습니다 (Streamlit Cloud 제약)</div>', unsafe_allow_html=True)
-                    elif file_type == "video":
-                        if os.path.exists(file_path):
-                            st.markdown(f'<div style="{style}">', unsafe_allow_html=True)
-                            st.video(file_path)
-                            st.markdown('</div>', unsafe_allow_html=True)
-                        else:
-                            st.markdown(f'<div style="color:#888; font-size:13px; margin:4px 0 8px 36px;{style}">비디오를 재생할 수 없습니다 (Streamlit Cloud 제약)</div>', unsafe_allow_html=True)
-                    else:
-                        if os.path.exists(file_path):
-                            st.markdown(f'<div style="{style}">', unsafe_allow_html=True)
-                            with open(file_path, "rb") as f:
-                                st.download_button(
-                                    label=f"📥 {original_name} 다운로드",
-                                    data=f.read(),
-                                    file_name=original_name,
-                                    mime="application/octet-stream",
-                                    use_container_width=True
-                                )
-                            st.markdown('</div>', unsafe_allow_html=True)
-                        else:
-                            st.markdown(f'<div style="color:#888; font-size:13px; margin:4px 0 8px 36px;{style}">파일을 다운로드할 수 없습니다 (Streamlit Cloud 제약)</div>', unsafe_allow_html=True)
                 
                 # URL 미리보기 표시 (카드 밖)
                 if post.get("url_previews"):
