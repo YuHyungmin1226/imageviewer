@@ -603,105 +603,172 @@ try:
                 st.rerun()
             # 게시물 작성 영역
             st.markdown("### 📝 게시물 작성")
+            
+            # 세션 상태 초기화
+            if "file_upload_popup" not in st.session_state:
+                st.session_state.file_upload_popup = False
+            if "selected_files" not in st.session_state:
+                st.session_state.selected_files = []
+            if "file_upload_complete" not in st.session_state:
+                st.session_state.file_upload_complete = False
+            
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
+                
+                # 첨부된 파일 목록 표시
+                if st.session_state.selected_files:
+                    st.markdown("**📎 첨부된 파일:**")
+                    for file_info in st.session_state.selected_files:
+                        st.write(f"• {file_info['name']} ({file_info['size']:.2f} MB)")
+                
                 col1, col2 = st.columns([1, 1])
                 with col1:
                     submitted = st.form_submit_button("게시", use_container_width=True)
                 with col2:
-                    # 폼 안에서는 버튼만 표시용으로 사용
-                    st.form_submit_button("파일 첨부 영역으로 이동", use_container_width=True, disabled=True)
+                    file_attach_btn = st.form_submit_button("파일 첨부", use_container_width=True)
+                    if file_attach_btn:
+                        st.session_state.file_upload_popup = True
+                        st.session_state.file_upload_complete = False
+                        st.rerun()
             
-            # 파일 첨부 영역 (별도 구분)
-            st.markdown("---")  # 구분선
-            st.markdown("### 📎 파일 첨부")
-            if "file_upload_open" not in st.session_state:
-                st.session_state.file_upload_open = False
-            
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                if st.button("파일 첨부 열기/닫기", use_container_width=True):
-                    st.session_state.file_upload_open = not st.session_state.file_upload_open
-            with col2:
-                if st.session_state.file_upload_open and st.button("파일 선택 초기화", use_container_width=True):
-                    st.session_state.uploaded_files = []
-                    st.success("파일 선택이 초기화되었습니다.")
-            with col3:
-                pass
-            
-            if st.session_state.file_upload_open:
+            # 파일 첨부 팝업
+            if st.session_state.file_upload_popup:
                 st.markdown("""
                 <div style="
-                    background: #f8f9fa;
-                    border: 2px dashed #dee2e6;
-                    border-radius: 12px;
-                    padding: 20px;
-                    margin: 15px 0;
-                    text-align: center;
-                ">
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.5);
+                    z-index: 9999;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                " id="popup-overlay">
+                </div>
                 """, unsafe_allow_html=True)
                 
-                files = st.file_uploader(
-                    "📁 파일을 선택하거나 드래그 앤 드롭하세요 (최대 10개)",
-                    accept_multiple_files=True, 
-                    type=["png","jpg","jpeg","gif","bmp","webp","mp4","avi","mov","wmv","flv","webm","mkv","mp3","wav","flac","aac","ogg","m4a"],
-                    help="지원 형식: 이미지, 비디오, 오디오 파일"
-                )
-                
-                if files:
-                    st.markdown("**선택된 파일:**")
-                    for file in files:
-                        file_size = len(file.getvalue()) if hasattr(file, 'getvalue') else file.size
-                        file_size_mb = file_size / (1024 * 1024)
-                        st.write(f"• {file.name} ({file_size_mb:.2f} MB)")
-                
-                st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                files = []
-                st.info("👆 위의 '파일 첨부 열기/닫기' 버튼을 클릭하여 파일을 첨부할 수 있습니다.")
-                if submitted and content.strip():
-                    uploaded_files = []
-                    for file in files or []:
-                        try:
-                            file_id = f"{uuid.uuid4().hex}_{file.name}"
-                            file_path = os.path.join(UPLOADS_DIR, file_id)
-                            with open(file_path, "wb") as f_out:
-                                f_out.write(file.read())
-                            uploaded_files.append({
-                                "original_name": file.name,
-                                "saved_name": file_id,
-                                "file_type": file.type,
-                                "size": os.path.getsize(file_path)
-                            })
-                        except Exception as e:
-                            st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
-                            # 파일 업로드 실패해도 게시글은 작성 가능
-                    # URL 미리보기 처리
-                    processed_content, url_previews = url_preview_generator.process_text_with_urls(content)
+                # 팝업 컨테이너
+                popup_container = st.container()
+                with popup_container:
+                    st.markdown("""
+                    <div style="
+                        background: white;
+                        border-radius: 16px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                        padding: 30px;
+                        margin: 20px auto;
+                        max-width: 600px;
+                        border: 2px solid #dee2e6;
+                    ">
+                    """, unsafe_allow_html=True)
                     
-                    new_post = {
-                        "id": str(uuid.uuid4()),
-                        "content": content,
-                        "author": st.session_state.current_user,
-                        "files": uploaded_files,
-                        "url_previews": url_previews,
-                        "created_at": datetime.now().isoformat(),
-                        "comments": [],
-                        "public": False
-                    }
-                    if USE_SUPABASE:
-                        if supabase_save_post(new_post):
-                            posts.insert(0, new_post)
-                            st.success("게시물이 등록되었습니다!")
-                        else:
-                            # Supabase 저장 실패시 로컬로 저장
-                            posts.insert(0, new_post)
-                            safe_save_json(POSTS_PATH, posts)
-                            st.success("게시물이 등록되었습니다! (로컬 모드)")
+                    st.markdown("### 📎 파일 첨부")
+                    
+                    files = st.file_uploader(
+                        "📁 파일을 선택하거나 드래그 앤 드롭하세요 (최대 10개)",
+                        accept_multiple_files=True, 
+                        type=["png","jpg","jpeg","gif","bmp","webp","mp4","avi","mov","wmv","flv","webm","mkv","mp3","wav","flac","aac","ogg","m4a"],
+                        help="지원 형식: 이미지, 비디오, 오디오 파일",
+                        key="popup_file_uploader"
+                    )
+                    
+                    if files:
+                        st.markdown("**선택된 파일:**")
+                        file_list = []
+                        for file in files:
+                            file_size = len(file.getvalue()) if hasattr(file, 'getvalue') else file.size
+                            file_size_mb = file_size / (1024 * 1024)
+                            st.write(f"• {file.name} ({file_size_mb:.2f} MB)")
+                            file_list.append({
+                                'name': file.name,
+                                'size': file_size_mb,
+                                'file_obj': file
+                            })
+                        st.session_state.selected_files = file_list
+                    
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    with col1:
+                        if st.button("첨부 완료", use_container_width=True, type="primary"):
+                            st.session_state.file_upload_popup = False
+                            st.session_state.file_upload_complete = True
+                            st.success("파일 첨부가 완료되었습니다!")
+                            st.rerun()
+                    with col2:
+                        if st.button("초기화", use_container_width=True):
+                            st.session_state.selected_files = []
+                            st.rerun()
+                    with col3:
+                        if st.button("취소", use_container_width=True):
+                            st.session_state.file_upload_popup = False
+                            st.rerun()
+                    
+                    st.markdown("</div>", unsafe_allow_html=True)
+            
+            # 게시글과 기존 게시글 구분선
+            st.markdown("""
+            <hr style="
+                border: none;
+                height: 3px;
+                background: linear-gradient(90deg, #e3f2fd, #bbdefb, #e3f2fd);
+                margin: 30px 0;
+                border-radius: 2px;
+            ">
+            """, unsafe_allow_html=True)
+            
+            # 게시글 처리 로직
+            if submitted and content.strip():
+                # 선택된 파일들을 처리
+                files = [file_info['file_obj'] for file_info in st.session_state.selected_files] if st.session_state.selected_files else []
+                uploaded_files = []
+                for file in files or []:
+                    try:
+                        file_id = f"{uuid.uuid4().hex}_{file.name}"
+                        file_path = os.path.join(UPLOADS_DIR, file_id)
+                        with open(file_path, "wb") as f_out:
+                            f_out.write(file.read())
+                        uploaded_files.append({
+                            "original_name": file.name,
+                            "saved_name": file_id,
+                            "file_type": file.type,
+                            "size": os.path.getsize(file_path)
+                        })
+                    except Exception as e:
+                        st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
+                        # 파일 업로드 실패해도 게시글은 작성 가능
+                
+                # URL 미리보기 처리
+                processed_content, url_previews = url_preview_generator.process_text_with_urls(content)
+                
+                new_post = {
+                    "id": str(uuid.uuid4()),
+                    "content": content,
+                    "author": st.session_state.current_user,
+                    "files": uploaded_files,
+                    "url_previews": url_previews,
+                    "created_at": datetime.now().isoformat(),
+                    "comments": [],
+                    "public": False
+                }
+                
+                if USE_SUPABASE:
+                    if supabase_save_post(new_post):
+                        posts.insert(0, new_post)
+                        st.success("게시물이 등록되었습니다!")
                     else:
+                        # Supabase 저장 실패시 로컬로 저장
                         posts.insert(0, new_post)
                         safe_save_json(POSTS_PATH, posts)
-                        st.success("게시물이 등록되었습니다!")
+                        st.success("게시물이 등록되었습니다! (로컬 모드)")
+                else:
+                    posts.insert(0, new_post)
+                    safe_save_json(POSTS_PATH, posts)
+                    st.success("게시물이 등록되었습니다!")
+                
+                # 파일 선택 초기화
+                st.session_state.selected_files = []
+                st.rerun()
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
             for idx, post in enumerate(visible_posts):
