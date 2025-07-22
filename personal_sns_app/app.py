@@ -901,25 +901,12 @@ try:
                                 file_bytes = f.read()
                                 file_b64 = base64.b64encode(file_bytes).decode()
                             if file_type == "image":
-                                # 전체보기 상태 관리용 키
-                                state_key = f"fullview_state_{post['id']}_{idx}"
-                                if state_key not in st.session_state:
-                                    st.session_state[state_key] = False
-                                # 썸네일 이미지를 버튼처럼 만들어 클릭 시 전체보기 상태 토글
-                                thumb_form_key = f"thumb_form_{post['id']}_{idx}"
-                                thumb_btn_key = f"thumb_btn_{post['id']}_{idx}"
-                                with st.form(thumb_form_key, clear_on_submit=True):
-                                    st.markdown(f'''
-                                    <div style="text-align:center; margin: 16px 0;">
-                                        <button type="submit" style="border:none; background:none; padding:0; cursor:pointer;">
-                                            <img src="data:image/{ext};base64,{file_b64}" style="max-width:250px; max-height:250px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); display:block; margin:0 auto;" />
-                                        </button>
-                                        <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
-                                    </div>
-                                    ''', unsafe_allow_html=True)
-                                    thumb_clicked = st.form_submit_button("이미지 전체보기")
-                                if thumb_clicked:
-                                    st.session_state[state_key] = not st.session_state[state_key]
+                                files_parts.append(f'''
+                                <div style="text-align:center; margin: 16px 0;">
+                                    <img src="data:image/{ext};base64,{file_b64}" style="max-width:600px; max-height:600px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); display:block; margin:0 auto;" />
+                                    <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
+                                </div>
+                                ''')
                             elif file_type == "audio":
                                 files_parts.append(f'''
                                 <div style="text-align:center; margin: 16px 0;">
@@ -948,13 +935,6 @@ try:
                                 ''')
                         else:
                             files_parts.append(f'<div style="color:#888; font-size:13px; margin:16px 0; text-align:center;">파일을 표시할 수 없습니다 (Streamlit Cloud 제약)</div>')
-                        # 전체보기 상태면 카드 아래에 원본 이미지 표시
-                        if file_type == "image":
-                            state_key = f"fullview_state_{post['id']}_{idx}"
-                            if st.session_state.get(state_key, False):
-                                st.markdown('<div style="margin: 0 0 16px 36px; text-align:center;">', unsafe_allow_html=True)
-                                st.image(file_path, caption=file['original_name'], use_container_width=True)
-                                st.markdown('</div>', unsafe_allow_html=True)
                     files_parts.append('</div>')
                     files_section = ''.join(files_parts)
                 st.markdown(f'''
