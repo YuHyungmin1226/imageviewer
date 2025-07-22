@@ -866,7 +866,10 @@ try:
                 
                 comments_parts.append('</div>')
                 comments_section = ''.join(comments_parts)
-                
+
+                # 댓글 영역을 별도로 HTML로 먼저 출력 (이중 escape 방지)
+                st.markdown(comments_section, unsafe_allow_html=True)
+
                 import base64
                 from pathlib import Path
                 files_section = ""
@@ -936,7 +939,7 @@ try:
                     </div>
                     <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>
                     {files_section}
-                    {comments_section}
+                    {''} <!-- comments_section은 별도 출력 -->
                 </div>
                 ''', unsafe_allow_html=True)
                 
