@@ -678,30 +678,28 @@ try:
                 url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
                 content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', safe_content)
                 
-                # 댓글 영역 HTML 생성 (항상 표시)
-                comments_section = '<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">'
+                # 댓글 영역 HTML 생성 (리스트로 구성 후 join)
+                comments_parts = ['<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">']
                 
                 # 기존 댓글들 표시
                 if post.get("comments", []):
                     for c in post.get("comments", []):
                         # HTML 특수문자 이스케이프 처리
-                        safe_author = c['author'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
-                        safe_content = c['content'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+                        import html
+                        safe_author = html.escape(c['author'])
+                        safe_content = html.escape(c['content'])
                         
-                        comments_section += f'''
-                        <div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;">
-                            <div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">
-                                {safe_author} 
-                                <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span>
-                            </div>
-                            <div style="font-size: 14px; line-height: 1.4; color: #333;">{safe_content}</div>
-                        </div>
-                        '''
+                        comment_html = f'''<div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;">
+<div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">{safe_author} <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span></div>
+<div style="font-size: 14px; line-height: 1.4; color: #333;">{safe_content}</div>
+</div>'''
+                        comments_parts.append(comment_html)
                 else:
                     # 댓글이 없을 때 안내 메시지
-                    comments_section += '<div style="color: #999; font-size: 14px; text-align: center; padding: 12px;">아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!</div>'
+                    comments_parts.append('<div style="color: #999; font-size: 14px; text-align: center; padding: 12px;">아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!</div>')
                 
-                comments_section += '</div>'
+                comments_parts.append('</div>')
+                comments_section = ''.join(comments_parts)
                 
                 # 완전한 게시글 카드 HTML (댓글 포함)
                 st.markdown(f'''
