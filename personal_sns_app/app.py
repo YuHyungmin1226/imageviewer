@@ -954,14 +954,15 @@ try:
                             files_parts.append(f'<div style="color:#888; font-size:13px; margin:16px 0; text-align:center;">파일을 표시할 수 없습니다 (Streamlit Cloud 제약)</div>')
                     files_parts.append('</div>')
                     files_section = ''.join(files_parts)
+                # 카드 본문(작성자/내용/파일)만 st.markdown으로 출력
                 st.markdown(f'''
                 <div style="
                     background: white;
                     border: 1px solid #e1e8ed;
-                    border-radius: 16px;
+                    border-radius: 16px 16px 0 0;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
                     padding: 24px;
-                    margin-bottom: 4px;
+                    margin-bottom: 0;
                     width: 100%;
                     box-sizing: border-box;
                 ">
@@ -971,7 +972,22 @@ try:
                     </div>
                     <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>
                     {files_section}
-                    {comments_section}
+                </div>
+                ''', unsafe_allow_html=True)
+                # 댓글 영역은 바로 아래에서 별도 출력 (카드 하단처럼 보이게)
+                st.markdown(f'''
+                <div style="
+                    background: white;
+                    border: 1px solid #e1e8ed;
+                    border-top: none;
+                    border-radius: 0 0 16px 16px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                    padding: 0 24px 16px 24px;
+                    margin-bottom: 24px;
+                    width: 100%;
+                    box-sizing: border-box;
+                ">
+                {comments_section}
                 </div>
                 ''', unsafe_allow_html=True)
                 
