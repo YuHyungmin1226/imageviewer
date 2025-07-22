@@ -227,6 +227,14 @@ st.markdown("""
 .stTextInput, .stTextArea, .stFileUploader, .stButton {
     margin-bottom: 18px;
 }
+.stFileUploader {
+    border: none !important;
+    background: transparent !important;
+}
+.stFileUploader > div {
+    border: none !important;
+    background: transparent !important;
+}
 .post-card {
     background: #f5f6fa;
     border: 2px solid #d1d9e0;
@@ -662,12 +670,14 @@ try:
                 with st.container():
                     st.markdown('''
                     <div class="post-card" style="
-                        background: #f5f6fa;
-                        border: 2px solid #d1d9e0;
-                        border-radius: 16px;
-                        box-shadow: 0 1px 6px rgba(0,0,0,0.04);
-                        padding: 18px 20px 12px 20px;
-                        margin-bottom: 24px;
+                        background: #f5f6fa !important;
+                        border: 3px solid #999999 !important;
+                        border-radius: 16px !important;
+                        box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
+                        padding: 18px 20px 12px 20px !important;
+                        margin-bottom: 24px !important;
+                        display: block !important;
+                        width: 100% !important;
                     ">
                     ''', unsafe_allow_html=True)
                     st.markdown(
