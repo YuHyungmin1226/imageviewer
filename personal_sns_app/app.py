@@ -660,7 +660,16 @@ try:
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
             for idx, post in enumerate(visible_posts):
                 with st.container():
-                    st.markdown('<div class="post-card">', unsafe_allow_html=True)
+                    st.markdown('''
+                    <div class="post-card" style="
+                        background: #f5f6fa;
+                        border: 2px solid #d1d9e0;
+                        border-radius: 16px;
+                        box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+                        padding: 18px 20px 12px 20px;
+                        margin-bottom: 24px;
+                    ">
+                    ''', unsafe_allow_html=True)
                     st.markdown(
                         f'<div class="post-header">'
                         f'<span class="post-author">{post["author"]}</span>'
