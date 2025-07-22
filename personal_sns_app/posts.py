@@ -38,7 +38,6 @@ class PostManager:
             "author": author,
             "files": uploaded_files,
             "created_at": datetime.now().isoformat(),
-            "likes": [],
             "comments": [],
             "public": False
         }
@@ -130,19 +129,7 @@ class PostManager:
                 # Streamlit Cloud에서는 파일 삭제가 제한적
                 pass
     
-    def toggle_like(self, post_id: str, username: str) -> bool:
-        """좋아요 토글"""
-        for post in self.posts:
-            if post["id"] == post_id:
-                likes = post.setdefault("likes", [])
-                if username in likes:
-                    likes.remove(username)
-                else:
-                    likes.append(username)
-                safe_save_json(self.posts_path, self.posts)
-                return True
-        return False
-    
+
     def add_comment(self, post_id: str, username: str, content: str) -> bool:
         """댓글 추가"""
         if not content.strip():

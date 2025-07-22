@@ -641,7 +641,6 @@ try:
                         "files": uploaded_files,
                         "url_previews": url_previews,
                         "created_at": datetime.now().isoformat(),
-                        "likes": [],
                         "comments": [],
                         "public": False
                     }
@@ -725,29 +724,15 @@ try:
                                 st.write(f"첨부파일: {file['original_name']}")
                         except Exception as e:
                             st.warning(f"첨부파일 표시 실패 (Streamlit Cloud에서는 파일 접근이 제한됨): {e}")
-                    col1, col2, col3, col4 = st.columns([1,1,1,1])
-                    liked = st.session_state.current_user in post.get("likes",[])
-                    like_count = len(post.get("likes", []))
-                    like_icon = "❤️" if liked else "🤍"
-                    like_text = f"{like_icon} {like_count}" if like_count > 0 else like_icon
-                    if col1.button(like_text, key=f"like_{post['id']}", use_container_width=True):
-                        if not liked:
-                            post.setdefault("likes", []).append(st.session_state.current_user)
-                        else:
-                            post.setdefault("likes", []).remove(st.session_state.current_user)
-                        if USE_SUPABASE:
-                            supabase_update_post(post['id'], {"likes": post["likes"]})
-                        else:
-                            safe_save_json(POSTS_PATH, posts)
-                        st.rerun()
-                    if col2.button("댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
+                    col1, col2, col3 = st.columns([1,1,1])
+                    if col1.button("댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
                         if "comment_open" not in st.session_state:
                             st.session_state["comment_open"] = {}
                         st.session_state["comment_open"][post['id']] = not st.session_state["comment_open"].get(post['id'], False)
                     if post["author"] == st.session_state.current_user:
                         public_status = post.get("public", False)
                         public_text = "공개" if public_status else "비공개"
-                        if col3.button(public_text, key=f"public_{post['id']}", use_container_width=True):
+                        if col2.button(public_text, key=f"public_{post['id']}", use_container_width=True):
                             post["public"] = not public_status
                             if USE_SUPABASE:
                                 supabase_update_post(post['id'], {"public": post["public"]})
@@ -755,7 +740,7 @@ try:
                                 safe_save_json(POSTS_PATH, posts)
                             st.rerun()
                     if post["author"] == st.session_state.current_user or st.session_state.current_user == "admin":
-                        if col4.button("삭제", key=f"delete_{post['id']}", use_container_width=True):
+                        if col3.button("삭제", key=f"delete_{post['id']}", use_container_width=True):
                             for file in post.get("files", []):
                                 file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
                                 try:

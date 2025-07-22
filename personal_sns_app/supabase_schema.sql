@@ -19,7 +19,6 @@ CREATE TABLE posts (
     url_previews JSONB DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    likes TEXT[] DEFAULT '{}',
     comments JSONB DEFAULT '[]',
     public BOOLEAN DEFAULT FALSE
 );
