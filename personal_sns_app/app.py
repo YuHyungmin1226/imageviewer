@@ -596,15 +596,13 @@ try:
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
                 if "file_upload_open" not in st.session_state:
                     st.session_state.file_upload_open = False
-                col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+                col1, col2, col3 = st.columns([1, 1, 1])
                 with col1:
                     submitted = st.form_submit_button("게시", use_container_width=True)
                 with col2:
                     if st.form_submit_button("파일 첨부", use_container_width=True):
                         st.session_state.file_upload_open = not st.session_state.file_upload_open
                 with col3:
-                    pass
-                with col4:
                     pass
                 if st.session_state.file_upload_open:
                     files = st.file_uploader(
