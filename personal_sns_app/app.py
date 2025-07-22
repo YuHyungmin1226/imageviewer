@@ -550,7 +550,7 @@ try:
                 # 사용자 목록 표시 (매번 새로 로드)
                 if USE_SUPABASE:
                     try:
-                        response = supabase.table('users').select('username, created_at').execute()
+                        response = supabase.table('users').select('*').execute()
                         all_users = response.data if response.data else []
                         st.info(f"Supabase에서 로드된 사용자 수: {len(all_users)}")
                     except Exception as e:
