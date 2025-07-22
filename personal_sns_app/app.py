@@ -225,15 +225,29 @@ body, .stApp, .block-container {
     color: #222 !important;
 }
 
+/* 카드 기본 스타일 */
+.post-card-light {
+    background: white !important;
+    border: 1px solid #e1e8ed !important;
+    color: #222 !important;
+}
+
+.post-content-light {
+    color: #222 !important;
+}
+
 /* 다크모드 대응 */
 @media (prefers-color-scheme: dark) {
     body, .stApp, .block-container {
         background: #181c1f !important;
         color: #f5f6fa !important;
     }
-    .post-card {
+    .post-card-light {
         background: #23272b !important;
-        border: 2px solid #444 !important;
+        border: 1px solid #444 !important;
+        color: #f5f6fa !important;
+    }
+    .post-content-light {
         color: #f5f6fa !important;
     }
     .post-header, .post-author, .post-time {
@@ -953,12 +967,12 @@ try:
                     files_section = ''.join(files_parts)
                 # 카드 전체(작성자/내용/파일/댓글)를 하나의 HTML로 합쳐서 한 번에 출력
                 st.markdown(
-                    f'<div style="background: white; border: 1px solid #e1e8ed; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); padding: 24px; margin-bottom: 24px; width: 100%; box-sizing: border-box;">'
+                    f'<div class="post-card-light" style="border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); padding: 24px; margin-bottom: 24px; width: 100%; box-sizing: border-box;">'
                     f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">'
                     f'<span style="font-weight: 600; color: #1da1f2; margin: 0;">{post["author"]}</span>'
                     f'<span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>'
                     f'</div>'
-                    f'<div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>'
+                    f'<div class="post-content-light" style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>'
                     f'{files_section}'
                     f'{comments_section}'
                     f'</div>',
