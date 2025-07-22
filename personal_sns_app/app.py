@@ -8,7 +8,7 @@ import io
 import hashlib
 from secure_auth import SecureAuth
 from session_manager import SessionManager
-from url_utils import URLPreviewGenerator
+from enhanced_url_utils import EnhancedURLPreviewGenerator
 
 # Supabase 연동
 USE_SUPABASE = False
@@ -179,7 +179,7 @@ secure_auth = SecureAuth(USERS_PATH, SESSION_PATH)
 session_manager = SessionManager(SESSION_PATH)
 
 # URL 미리보기 생성기 초기화
-url_preview_generator = URLPreviewGenerator()
+url_preview_generator = EnhancedURLPreviewGenerator()
 
 # 세션 상태 초기화
 if 'session_id' not in st.session_state:
@@ -334,6 +334,79 @@ st.markdown("""
     font-weight: 500;
 }
 
+/* YouTube 미리보기 스타일 */
+.youtube-preview-card {
+    border: 1px solid #e1e8ed;
+    border-radius: 16px;
+    overflow: hidden;
+    margin: 12px 0;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+    max-width: 500px;
+}
+.youtube-preview-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+.youtube-preview-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+.youtube-thumbnail-container {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    background: #000;
+    overflow: hidden;
+}
+.youtube-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.youtube-play-button {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+.youtube-preview-card:hover .youtube-play-button {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+}
+.youtube-info {
+    padding: 16px;
+}
+.youtube-title {
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.4;
+    color: #0f0f0f;
+    margin-bottom: 8px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.youtube-channel {
+    font-size: 14px;
+    color: #606060;
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+.youtube-domain {
+    font-size: 12px;
+    color: #909090;
+    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
 /* 반응형 디자인 */
 @media (max-width: 600px) {
     .url-preview-content {
@@ -346,6 +419,12 @@ st.markdown("""
     }
     .url-preview-image img {
         height: 200px;
+    }
+    .youtube-preview-card {
+        max-width: 100%;
+    }
+    .youtube-thumbnail-container {
+        height: 220px;
     }
 }
 </style>
