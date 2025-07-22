@@ -229,7 +229,7 @@ st.markdown("""
 }
 .post-card {
     background: #f5f6fa;
-    border: 1px solid #e1e8ed;
+    border: 2px solid #d1d9e0;
     border-radius: 16px;
     box-shadow: 0 1px 6px rgba(0,0,0,0.04);
     padding: 18px 20px 12px 20px;
