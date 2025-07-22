@@ -651,117 +651,87 @@ try:
             with col1:
                 submitted = st.button("📝 게시", use_container_width=True, type="primary")
             with col2:
-                if st.button("🎬 사진/영상", use_container_width=True):
-                    st.session_state.show_media_uploader = not st.session_state.show_media_uploader
-                    st.rerun()
+                pass  # 사진/영상 버튼 제거
             with col3:
-                if st.button("📁 파일", use_container_width=True):
-                    st.session_state.show_file_uploader = not st.session_state.show_file_uploader
-                    st.rerun()
+                pass  # 파일 버튼 제거
             
-            # 사진/영상 첨부 처리 (세션 상태에 따라 표시)
-            if st.session_state.show_media_uploader:
-                st.markdown("### 🎬 사진/영상 첨부")
-                media_files = st.file_uploader(
-                    "사진이나 영상을 선택하세요",
-                    accept_multiple_files=True,
-                    type=["png", "jpg", "jpeg", "gif", "bmp", "webp", "mp4", "avi", "mov", "wmv", "flv", "webm", "mkv"],
-                    key=f"media_uploader_{st.session_state.media_uploader_key}"
-                )
-                
-                if media_files:
-                    st.success(f"{len(media_files)}개 파일이 선택되었습니다!")
-                    new_files = []
-                    for file in media_files:
-                        file_type = "image" if file.type.startswith("image/") else "video"
-                        
-                        # 파일 내용을 즉시 읽어서 저장 (스트림 문제 해결)
-                        file.seek(0)  # 스트림 초기화
-                        file_content = file.read()  # bytes로 내용 읽기
-                        
-                        file_info = {
-                            'name': file.name,
-                            'size': file.size,
-                            'type': file_type,
-                            'content': file_content  # file_obj 대신 content 저장
-                        }
-                        # 중복 체크
-                        if not any(f['name'] == file.name for f in st.session_state.selected_media_files):
-                            new_files.append(file_info)
-                    
-                    if new_files:
-                        col_confirm, col_clear = st.columns([1, 1])
-                        with col_confirm:
-                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key=f"media_confirm_{st.session_state.media_uploader_key}"):
-                                st.session_state.selected_media_files.extend(new_files)
-                                # 업로더 키 증가로 업로더 초기화
-                                st.session_state.media_uploader_key += 1
-                                st.success("미디어 파일이 첨부되었습니다!")
-                                st.rerun()
-                        with col_clear:
-                            if st.button("🗑️ 모두 초기화", use_container_width=True, key=f"media_clear_{st.session_state.media_uploader_key}"):
-                                st.session_state.selected_media_files = []
-                                # 업로더 키 증가로 업로더 초기화
-                                st.session_state.media_uploader_key += 1
-                                st.success("미디어 파일이 초기화되었습니다!")
-                                st.rerun()
-                
-                # 업로더 닫기 버튼
-                if st.button("❌ 닫기", use_container_width=True, key=f"close_media_{st.session_state.media_uploader_key}"):
-                    st.session_state.show_media_uploader = False
-                    st.rerun()
+            # 사진/영상 file_uploader 항상 노출 (드래그 드랍 안내문구 제거)
+            media_files = st.file_uploader(
+                "사진/영상 첨부 (여러 개 선택 가능)",
+                accept_multiple_files=True,
+                type=["png", "jpg", "jpeg", "gif", "bmp", "webp", "mp4", "avi", "mov", "wmv", "flv", "webm", "mkv"],
+                key=f"media_uploader_{st.session_state.media_uploader_key}",
+                label_visibility="visible",
+                help=None,
+                disabled=False
+            )
+            if media_files:
+                new_files = []
+                for file in media_files:
+                    file_type = "image" if file.type.startswith("image/") else "video"
+                    file.seek(0)
+                    file_content = file.read()
+                    file_info = {
+                        'name': file.name,
+                        'size': file.size,
+                        'type': file_type,
+                        'content': file_content
+                    }
+                    if not any(f['name'] == file.name for f in st.session_state.selected_media_files):
+                        new_files.append(file_info)
+                if new_files:
+                    col_confirm, col_clear = st.columns([1, 1])
+                    with col_confirm:
+                        if st.button("✅ 사진/영상 첨부 완료", use_container_width=True, type="primary", key=f"media_confirm_{st.session_state.media_uploader_key}"):
+                            st.session_state.selected_media_files.extend(new_files)
+                            st.session_state.media_uploader_key += 1
+                            st.success("미디어 파일이 첨부되었습니다!")
+                            st.rerun()
+                    with col_clear:
+                        if st.button("🗑️ 사진/영상 모두 초기화", use_container_width=True, key=f"media_clear_{st.session_state.media_uploader_key}"):
+                            st.session_state.selected_media_files = []
+                            st.session_state.media_uploader_key += 1
+                            st.success("미디어 파일이 초기화되었습니다!")
+                            st.rerun()
             
-            # 기타 파일 첨부 처리 (세션 상태에 따라 표시)
-            if st.session_state.show_file_uploader:
-                st.markdown("### 📁 파일 첨부")
-                other_files = st.file_uploader(
-                    "음악, 문서 등의 파일을 선택하세요",
-                    accept_multiple_files=True,
-                    type=["mp3", "wav", "flac", "aac", "ogg", "m4a", "pdf", "txt", "doc", "docx", "xlsx", "pptx"],
-                    key=f"file_uploader_{st.session_state.file_uploader_key}"
-                )
-                
-                if other_files:
-                    st.success(f"{len(other_files)}개 파일이 선택되었습니다!")
-                    new_files = []
-                    for file in other_files:
-                        file_type = "audio" if file.type.startswith("audio/") or file.name.lower().endswith(('.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a')) else "document"
-                        
-                        # 파일 내용을 즉시 읽어서 저장 (스트림 문제 해결)
-                        file.seek(0)  # 스트림 초기화
-                        file_content = file.read()  # bytes로 내용 읽기
-                        
-                        file_info = {
-                            'name': file.name,
-                            'size': file.size,
-                            'type': file_type,
-                            'content': file_content  # file_obj 대신 content 저장
-                        }
-                        # 중복 체크
-                        if not any(f['name'] == file.name for f in st.session_state.selected_other_files):
-                            new_files.append(file_info)
-                    
-                    if new_files:
-                        col_confirm, col_clear = st.columns([1, 1])
-                        with col_confirm:
-                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key=f"file_confirm_{st.session_state.file_uploader_key}"):
-                                st.session_state.selected_other_files.extend(new_files)
-                                # 업로더 키 증가로 업로더 초기화
-                                st.session_state.file_uploader_key += 1
-                                st.success("파일이 첨부되었습니다!")
-                                st.rerun()
-                        with col_clear:
-                            if st.button("🗑️ 모두 초기화", use_container_width=True, key=f"file_clear_{st.session_state.file_uploader_key}"):
-                                st.session_state.selected_other_files = []
-                                # 업로더 키 증가로 업로더 초기화
-                                st.session_state.file_uploader_key += 1
-                                st.success("파일이 초기화되었습니다!")
-                                st.rerun()
-                
-                # 업로더 닫기 버튼
-                if st.button("❌ 닫기", use_container_width=True, key=f"close_file_{st.session_state.file_uploader_key}"):
-                    st.session_state.show_file_uploader = False
-                    st.rerun()
+            # 파일 file_uploader 항상 노출 (드래그 드랍 안내문구 제거)
+            other_files = st.file_uploader(
+                "파일 첨부 (여러 개 선택 가능)",
+                accept_multiple_files=True,
+                type=["mp3", "wav", "flac", "aac", "ogg", "m4a", "pdf", "txt", "doc", "docx", "xlsx", "pptx"],
+                key=f"file_uploader_{st.session_state.file_uploader_key}",
+                label_visibility="visible",
+                help=None,
+                disabled=False
+            )
+            if other_files:
+                new_files = []
+                for file in other_files:
+                    file_type = "audio" if file.type.startswith("audio/") or file.name.lower().endswith(('.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a')) else "document"
+                    file.seek(0)
+                    file_content = file.read()
+                    file_info = {
+                        'name': file.name,
+                        'size': file.size,
+                        'type': file_type,
+                        'content': file_content
+                    }
+                    if not any(f['name'] == file.name for f in st.session_state.selected_other_files):
+                        new_files.append(file_info)
+                if new_files:
+                    col_confirm, col_clear = st.columns([1, 1])
+                    with col_confirm:
+                        if st.button("✅ 파일 첨부 완료", use_container_width=True, type="primary", key=f"file_confirm_{st.session_state.file_uploader_key}"):
+                            st.session_state.selected_other_files.extend(new_files)
+                            st.session_state.file_uploader_key += 1
+                            st.success("파일이 첨부되었습니다!")
+                            st.rerun()
+                    with col_clear:
+                        if st.button("🗑️ 파일 모두 초기화", use_container_width=True, key=f"file_clear_{st.session_state.file_uploader_key}"):
+                            st.session_state.selected_other_files = []
+                            st.session_state.file_uploader_key += 1
+                            st.success("파일이 초기화되었습니다!")
+                            st.rerun()
             
             # 게시글과 기존 게시글 구분선
             st.markdown("""
