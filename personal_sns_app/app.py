@@ -245,7 +245,6 @@ try:
                         st.error("이미 존재하는 사용자명입니다.")
                     else:
                         password_hash = hash_password(new_password)
-                        st.info(f"회원가입 해시: {password_hash}")
                         if USE_SUPABASE:
                             if supabase_save_user(new_username, password_hash):
                                 users[new_username] = password_hash
@@ -266,7 +265,7 @@ try:
                     elif username not in users:
                         st.error("존재하지 않는 사용자명입니다.")
                     elif users[username] != hash_password(password):
-                        st.error(f"비밀번호가 올바르지 않습니다. 입력한 해시: {hash_password(password)}, 저장된 해시: {users[username]}")
+                        st.error("비밀번호가 올바르지 않습니다.")
                     else:
                         st.session_state.logged_in = True
                         st.session_state.current_user = username
