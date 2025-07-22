@@ -645,10 +645,6 @@ try:
                     file_type = "🎵" if file_info['type'] == "audio" else "🎬" if file_info['type'] == "video" else "🖼️" if file_info['type'] == "image" else "📄"
                     st.write(f"{file_type} {file_info['name']} ({file_size_mb:.2f} MB)")
             
-            # 디버깅 정보 (임시)
-            st.markdown(f"🔧 **Debug**: 미디어 업로더 키: {st.session_state.media_uploader_key}, 파일 업로더 키: {st.session_state.file_uploader_key}")
-            st.markdown(f"🔧 **Debug**: 미디어 업로더 표시: {st.session_state.show_media_uploader}, 파일 업로더 표시: {st.session_state.show_file_uploader}")
-            
             # 3개 컬럼으로 버튼 배치 (폼 밖에서)
             col1, col2, col3 = st.columns([1, 1, 1])
             with col1:
@@ -894,10 +890,10 @@ try:
                 <div style="
                     background: white;
                     border: 1px solid #e1e8ed;
-                    border-radius: 16px;
+                    border-radius: 16px 16px {('4px 4px' if post.get('files', []) else '16px 16px')};
                     box-shadow: 0 1px 3px rgba(0,0,0,0.12);
                     padding: 24px;
-                    margin-bottom: 16px;
+                    margin-bottom: {('0px' if post.get('files', []) else '16px')};
                     width: 100%;
                     box-sizing: border-box;
                 ">
@@ -910,15 +906,53 @@ try:
                 </div>
                 ''', unsafe_allow_html=True)
                 
-                # 첨부된 파일 표시 (카드 밖)
+                # 첨부된 파일 표시 (연결된 박스)
                 if post.get("files", []):
-                    st.markdown("**📎 첨부된 파일:**")
+                    # 파일 박스 상단
+                    st.markdown('''
+                    <div style="
+                        background: #f8f9fa;
+                        border: 1px solid #e1e8ed;
+                        border-top: none;
+                        border-radius: 0 0 16px 16px;
+                        padding: 16px 24px;
+                        margin-bottom: 16px;
+                        width: 100%;
+                        box-sizing: border-box;
+                    ">
+                        <div style="font-weight: 600; color: #666; font-size: 14px; margin-bottom: 12px;">📎 첨부된 파일</div>
+                    </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    # 각 파일을 카드 스타일로 표시
                     for file in post.get("files", []):
                         file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
+                        
+                        # 파일 정보 표시
+                        file_size_mb = file.get('size', 0) / (1024 * 1024)
+                        file_type_icon = "🎵" if file["file_type"] == "audio" else "🎬" if file["file_type"] == "video" else "🖼️" if file["file_type"] == "image" else "📄"
+                        
+                        st.markdown(f'''
+                        <div style="
+                            background: white;
+                            border: 1px solid #e1e8ed;
+                            border-radius: 8px;
+                            padding: 12px;
+                            margin: 8px 0;
+                            display: flex;
+                            align-items: center;
+                        ">
+                            <span style="font-size: 20px; margin-right: 12px;">{file_type_icon}</span>
+                            <div>
+                                <div style="font-weight: 500; font-size: 14px;">{file['original_name']}</div>
+                                <div style="color: #666; font-size: 12px;">{file_size_mb:.2f} MB</div>
+                            </div>
+                        </div>
+                        ''', unsafe_allow_html=True)
+                        
                         try:
                             if file["file_type"] == "audio":
                                 # 음악 파일 - 플레이어 표시
-                                st.markdown(f"🎵 **{file['original_name']}**")
                                 if os.path.exists(file_path):
                                     st.audio(file_path)
                                 else:
@@ -926,7 +960,6 @@ try:
                             
                             elif file["file_type"] == "video":
                                 # 비디오 파일 - 비디오 플레이어 표시
-                                st.markdown(f"🎬 **{file['original_name']}**")
                                 if os.path.exists(file_path):
                                     st.video(file_path)
                                 else:
@@ -934,7 +967,6 @@ try:
                             
                             elif file["file_type"] == "image":
                                 # 이미지 파일 - 이미지 표시
-                                st.markdown(f"🖼️ **{file['original_name']}**")
                                 if os.path.exists(file_path):
                                     st.image(file_path, use_container_width=True, caption=file['original_name'])
                                 else:
@@ -942,8 +974,6 @@ try:
                             
                             else:
                                 # 기타 문서 파일 - 다운로드 링크
-                                file_size_mb = file.get('size', 0) / (1024 * 1024)
-                                st.markdown(f"📄 **{file['original_name']}** ({file_size_mb:.2f} MB)")
                                 if os.path.exists(file_path):
                                     with open(file_path, "rb") as f:
                                         st.download_button(
@@ -958,6 +988,10 @@ try:
                         
                         except Exception as e:
                             st.warning(f"파일 처리 오류: {file['original_name']} - {e}")
+                
+                else:
+                    # 파일이 없을 때는 기본 마진 추가
+                    st.markdown('<div style="margin-bottom: 16px;"></div>', unsafe_allow_html=True)
                 
                 # URL 미리보기 표시 (카드 밖)
                 if post.get("url_previews"):
