@@ -665,9 +665,9 @@ try:
                     ">
                     ''', unsafe_allow_html=True)
                     st.markdown(
-                        f'<div class="post-header">'
-                        f'<span class="post-author">{post["author"]}</span>'
-                        f'<span class="post-time">{post["created_at"][:16]}</span>'
+                        f'<div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 12px !important; width: 100% !important;">'
+                        f'<span style="font-weight: 600 !important; color: #1da1f2 !important; margin: 0 !important;">{post["author"]}</span>'
+                        f'<span style="color: #666 !important; font-size: 13px !important; margin: 0 !important;">{post["created_at"][:16]}</span>'
                         f'</div>',
                         unsafe_allow_html=True
                     )
