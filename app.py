@@ -17,14 +17,13 @@ try:
         supabase = create_client(supabase_url, supabase_key)
         USE_SUPABASE = True
     else:
-        # 로컬 개발용 Supabase 설정 (실제 값으로 변경 필요)
-        supabase_url = "your-supabase-url"
-        supabase_key = "your-supabase-anon-key"
-        supabase = create_client(supabase_url, supabase_key)
-        USE_SUPABASE = True
+        # Supabase 설정이 없으면 로컬 모드로 실행
+        USE_SUPABASE = False
+        supabase = None
 except Exception as e:
-    st.error(f"Supabase 연결 오류: {e}")
+    st.warning(f"Supabase 연결 실패, 로컬 모드로 실행됩니다: {e}")
     USE_SUPABASE = False
+    supabase = None
 
 # 로컬 파일 시스템 (백업용)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,47 +35,47 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # Supabase 데이터베이스 함수들
 def supabase_load_posts():
-    if not USE_SUPABASE:
+    if not USE_SUPABASE or supabase is None:
         return []
     try:
         response = supabase.table('posts').select('*').order('created_at', desc=True).execute()
         return response.data
     except Exception as e:
-        st.error(f"게시글 로드 오류: {e}")
+        st.warning(f"Supabase 게시글 로드 실패: {e}")
         return []
 
 def supabase_save_post(post_data):
-    if not USE_SUPABASE:
+    if not USE_SUPABASE or supabase is None:
         return False
     try:
         supabase.table('posts').insert(post_data).execute()
         return True
     except Exception as e:
-        st.error(f"게시글 저장 오류: {e}")
+        st.warning(f"Supabase 게시글 저장 실패: {e}")
         return False
 
 def supabase_update_post(post_id, update_data):
-    if not USE_SUPABASE:
+    if not USE_SUPABASE or supabase is None:
         return False
     try:
         supabase.table('posts').update(update_data).eq('id', post_id).execute()
         return True
     except Exception as e:
-        st.error(f"게시글 업데이트 오류: {e}")
+        st.warning(f"Supabase 게시글 업데이트 실패: {e}")
         return False
 
 def supabase_delete_post(post_id):
-    if not USE_SUPABASE:
+    if not USE_SUPABASE or supabase is None:
         return False
     try:
         supabase.table('posts').delete().eq('id', post_id).execute()
         return True
     except Exception as e:
-        st.error(f"게시글 삭제 오류: {e}")
+        st.warning(f"Supabase 게시글 삭제 실패: {e}")
         return False
 
 def supabase_load_users():
-    if not USE_SUPABASE:
+    if not USE_SUPABASE or supabase is None:
         return {"admin": hash_password("admin123")}
     try:
         response = supabase.table('users').select('*').execute()
@@ -85,11 +84,11 @@ def supabase_load_users():
             users[user['username']] = user['password_hash']
         return users
     except Exception as e:
-        st.error(f"사용자 로드 오류: {e}")
+        st.warning(f"Supabase 사용자 로드 실패: {e}")
         return {"admin": hash_password("admin123")}
 
 def supabase_save_user(username, password_hash):
-    if not USE_SUPABASE:
+    if not USE_SUPABASE or supabase is None:
         return False
     try:
         supabase.table('users').insert({
@@ -99,11 +98,11 @@ def supabase_save_user(username, password_hash):
         }).execute()
         return True
     except Exception as e:
-        st.error(f"사용자 저장 오류: {e}")
+        st.warning(f"Supabase 사용자 저장 실패: {e}")
         return False
 
 def supabase_update_user(username, password_hash):
-    if not USE_SUPABASE:
+    if not USE_SUPABASE or supabase is None:
         return False
     try:
         supabase.table('users').update({
@@ -112,7 +111,7 @@ def supabase_update_user(username, password_hash):
         }).eq('username', username).execute()
         return True
     except Exception as e:
-        st.error(f"사용자 업데이트 오류: {e}")
+        st.warning(f"Supabase 사용자 업데이트 실패: {e}")
         return False
 
 # 로컬 파일 시스템 함수들 (백업용)
