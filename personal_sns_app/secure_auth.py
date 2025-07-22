@@ -10,13 +10,15 @@ from session_manager import SessionManager
 class SecureAuth:
     """보안이 강화된 인증 시스템"""
     
-    def __init__(self, users_path: str, session_path: str):
+    def __init__(self, users_path: str, session_path: str, use_supabase: bool = False, supabase_client=None):
         self.users_path = users_path
         self.session_manager = SessionManager(session_path)
         self.users = self._load_users()
         self.login_attempts = {}  # 로그인 시도 기록
         self.max_login_attempts = 5  # 최대 로그인 시도 횟수
         self.lockout_duration = 15  # 계정 잠금 시간 (분)
+        self.use_supabase = use_supabase
+        self.supabase = supabase_client
     
     def _load_users(self) -> Dict[str, str]:
         """사용자 데이터 로드"""
@@ -97,48 +99,49 @@ class SecureAuth:
     
     def register_user(self, username: str, password: str) -> Tuple[bool, str]:
         """사용자 등록"""
-        # 입력 검증
         if not username or not password:
             return False, "사용자명과 비밀번호를 모두 입력해주세요."
-        
         if len(username) < 3:
             return False, "사용자명은 3자 이상이어야 합니다."
-        
         if len(password) < 6:
             return False, "비밀번호는 6자 이상이어야 합니다."
-        
-        # 사용자명 중복 확인
         if username in self.users:
             return False, "이미 존재하는 사용자명입니다."
-        
-        # 비밀번호 해싱 및 저장
         password_hash = self._hash_password(password)
         self.users[username] = password_hash
         safe_save_json(self.users_path, self.users)
-        
+        # Supabase에도 저장
+        if self.use_supabase and self.supabase is not None:
+            try:
+                self.supabase.table('users').insert({
+                    'username': username,
+                    'password_hash': password_hash,
+                    'created_at': datetime.now().isoformat()
+                }).execute()
+            except Exception as e:
+                st.warning(f"Supabase 사용자 저장 실패: {e}")
         return True, "회원가입이 완료되었습니다!"
     
     def change_password(self, username: str, current_password: str, new_password: str) -> Tuple[bool, str]:
-        """비밀번호 변경"""
-        # 현재 비밀번호 확인
         if self.users[username] != self._hash_password(current_password):
             return False, "현재 비밀번호가 올바르지 않습니다."
-        
-        # 새 비밀번호 검증
         if len(new_password) < 6:
             return False, "새 비밀번호는 6자 이상이어야 합니다."
-        
         if new_password == current_password:
             return False, "새 비밀번호는 기존 비밀번호와 달라야 합니다."
-        
-        # 비밀번호 변경
         new_password_hash = self._hash_password(new_password)
         self.users[username] = new_password_hash
         safe_save_json(self.users_path, self.users)
-        
-        # 기존 세션 무효화 (보안 강화)
+        # Supabase에도 비밀번호 변경
+        if self.use_supabase and self.supabase is not None:
+            try:
+                self.supabase.table('users').update({
+                    'password_hash': new_password_hash,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('username', username).execute()
+            except Exception as e:
+                st.warning(f"Supabase 비밀번호 변경 실패: {e}")
         self.session_manager._invalidate_user_sessions(username)
-        
         return True, "비밀번호가 성공적으로 변경되었습니다!"
     
     def validate_session(self, session_id: str) -> Optional[Dict]:
@@ -161,17 +164,16 @@ class SecureAuth:
         }
     
     def delete_user(self, username: str) -> Tuple[bool, str]:
-        """사용자 삭제"""
         if username not in self.users or username == "admin":
             return False, "삭제할 수 없는 사용자입니다."
-        
-        # 사용자 삭제
         del self.users[username]
         safe_save_json(self.users_path, self.users)
-        
-        # 세션 무효화
+        if self.use_supabase and self.supabase is not None:
+            try:
+                self.supabase.table('users').delete().eq('username', username).execute()
+            except Exception as e:
+                st.warning(f"Supabase 사용자 삭제 실패: {e}")
         self.session_manager._invalidate_user_sessions(username)
-        
         return True, f"사용자 '{username}'가 삭제되었습니다."
     
     def get_login_attempts_info(self, username: str) -> Dict:

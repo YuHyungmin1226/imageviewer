@@ -174,7 +174,7 @@ def hash_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 # 보안 인증 시스템 초기화
-secure_auth = SecureAuth(USERS_PATH, SESSION_PATH)
+secure_auth = SecureAuth(USERS_PATH, SESSION_PATH, use_supabase=USE_SUPABASE, supabase_client=supabase)
 session_manager = SessionManager(SESSION_PATH)
 
 # URL 미리보기 생성기 초기화
