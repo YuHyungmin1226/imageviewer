@@ -169,23 +169,17 @@ if 'password_changed' not in st.session_state:
 
 # 세션 유효성 검증
 if st.session_state.session_id:
-    try:
-        session_data = session_manager.validate_session(st.session_state.session_id)
-        st.write(f"Debug: session_data type={type(session_data)}, value={session_data}")
-        if isinstance(session_data, dict):
-            st.session_state.logged_in = True
-            st.session_state.current_user = session_data.get("username")
-            st.session_state.password_changed = session_data.get("password_changed", True)
-        else:
-            # 세션이 만료되었거나 유효하지 않음
-            st.session_state.session_id = None
-            st.session_state.logged_in = False
-            st.session_state.current_user = None
-            st.session_state.password_changed = False
-    except Exception as e:
-        st.error(f"세션 검증 중 오류: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
+    session_data = session_manager.validate_session(st.session_state.session_id)
+    if isinstance(session_data, dict):
+        st.session_state.logged_in = True
+        st.session_state.current_user = session_data.get("username")
+        st.session_state.password_changed = session_data.get("password_changed", True)
+    else:
+        # 세션이 만료되었거나 유효하지 않음
+        st.session_state.session_id = None
+        st.session_state.logged_in = False
+        st.session_state.current_user = None
+        st.session_state.password_changed = False
 
 # 데이터 로드
 try:
@@ -272,22 +266,16 @@ try:
                 password = st.text_input("비밀번호", type="password", key="login_password")
                 login_submitted = st.form_submit_button("로그인")
                 if login_submitted:
-                    try:
-                        success, session_id, message = secure_auth.login(username, password)
-                        st.write(f"Debug: success={success}, session_id type={type(session_id)}, message={message}")
-                        if success:
-                            st.session_state.session_id = session_id
-                            st.session_state.logged_in = True
-                            st.session_state.current_user = username
-                            st.session_state.password_changed = not (username == "admin" and password == "admin123")
-                            st.success(message)
-                            st.rerun()
-                        else:
-                            st.error(message)
-                    except Exception as e:
-                        st.error(f"로그인 처리 중 오류: {str(e)}")
-                        import traceback
-                        st.code(traceback.format_exc())
+                    success, session_id, message = secure_auth.login(username, password)
+                    if success:
+                        st.session_state.session_id = session_id
+                        st.session_state.logged_in = True
+                        st.session_state.current_user = username
+                        st.session_state.password_changed = not (username == "admin" and password == "admin123")
+                        st.success(message)
+                        st.rerun()
+                    else:
+                        st.error(message)
     else:
         # 비밀번호 변경이 필요한 경우 (admin 계정이 기본 비밀번호로 로그인한 경우)
         if st.session_state.current_user == "admin" and not st.session_state.password_changed:
@@ -342,7 +330,7 @@ try:
                             if login_info.get('locked', False):
                                 st.error(f"계정 잠금: {login_info['remaining_time']}분 남음")
                     except Exception as e:
-                        st.debug(f"로그인 정보 로드 오류: {e}")
+                        pass  # 로그인 정보 로드 실패시 무시
                 
                 # 사용자 목록 표시 (매번 새로 로드)
                 if USE_SUPABASE:
