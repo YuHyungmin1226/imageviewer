@@ -21,7 +21,7 @@ echo "패키지를 설치합니다..."
 mkdir -p uploads
 
 echo "SNS 앱을 실행합니다..."
-echo "브라우저에서 http://localhost:5001 으로 접속하세요."
+echo "브라우저에서 http://localhost:8501 으로 접속하세요."
 echo "종료하려면 Ctrl+C를 누르세요."
 
 # 앱 실행 (에러는 로그 파일로 리다이렉트)

@@ -2,7 +2,9 @@ import streamlit as st
 import requests
 import datetime
 
-API_KEY = "c4ef97602ca54adc9e4cd49648b247f6"
+# API 키를 환경변수에서 가져오기
+import os
+API_KEY = os.getenv("NEIS_API_KEY", "c4ef97602ca54adc9e4cd49648b247f6")
 REGION_CODES = {
     '서울특별시': 'B10', '부산광역시': 'C10', '대구광역시': 'D10', '인천광역시': 'E10',
     '광주광역시': 'F10', '대전광역시': 'G10', '울산광역시': 'H10', '세종특별자치시': 'I10',

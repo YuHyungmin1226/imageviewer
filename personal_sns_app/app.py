@@ -12,7 +12,7 @@ USE_SUPABASE = False
 supabase = None
 
 try:
-    from supabase import create_client
+    from supabase import create_client # type: ignore
     # Streamlit Secrets에서 Supabase 설정 가져오기
     if hasattr(st, 'secrets') and 'supabase_url' in st.secrets and 'supabase_key' in st.secrets:
         supabase_url = st.secrets.supabase_url
