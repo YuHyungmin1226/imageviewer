@@ -617,13 +617,16 @@ try:
                 st.rerun()
             # 게시물 작성 영역
             st.markdown("### 📝 게시물 작성")
-            # 2024-07-22 파일첨부 제거됨
             
             # 세션 상태 초기화
             if "selected_media_files" not in st.session_state:
                 st.session_state.selected_media_files = []
             if "selected_other_files" not in st.session_state:
                 st.session_state.selected_other_files = []
+            if "show_media_uploader" not in st.session_state:
+                st.session_state.show_media_uploader = False
+            if "show_file_uploader" not in st.session_state:
+                st.session_state.show_file_uploader = False
             
             # 게시물 내용 입력
             content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500, key="post_content")
@@ -642,12 +645,16 @@ try:
             with col1:
                 submitted = st.button("📝 게시", use_container_width=True, type="primary")
             with col2:
-                media_btn = st.button("🎬 사진/영상", use_container_width=True)
+                if st.button("🎬 사진/영상", use_container_width=True):
+                    st.session_state.show_media_uploader = not st.session_state.show_media_uploader
+                    st.rerun()
             with col3:
-                file_btn = st.button("📁 파일", use_container_width=True)
+                if st.button("📁 파일", use_container_width=True):
+                    st.session_state.show_file_uploader = not st.session_state.show_file_uploader
+                    st.rerun()
             
-            # 사진/영상 첨부 처리
-            if media_btn:
+            # 사진/영상 첨부 처리 (세션 상태에 따라 표시)
+            if st.session_state.show_media_uploader:
                 st.markdown("### 🎬 사진/영상 첨부")
                 media_files = st.file_uploader(
                     "사진이나 영상을 선택하세요",
@@ -688,9 +695,14 @@ try:
                                 st.session_state.selected_media_files = []
                                 st.success("미디어 파일이 초기화되었습니다!")
                                 st.rerun()
+                
+                # 업로더 닫기 버튼
+                if st.button("❌ 닫기", use_container_width=True, key="close_media"):
+                    st.session_state.show_media_uploader = False
+                    st.rerun()
             
-            # 기타 파일 첨부 처리
-            if file_btn:
+            # 기타 파일 첨부 처리 (세션 상태에 따라 표시)
+            if st.session_state.show_file_uploader:
                 st.markdown("### 📁 파일 첨부")
                 other_files = st.file_uploader(
                     "음악, 문서 등의 파일을 선택하세요",
@@ -731,6 +743,11 @@ try:
                                 st.session_state.selected_other_files = []
                                 st.success("파일이 초기화되었습니다!")
                                 st.rerun()
+                
+                # 업로더 닫기 버튼
+                if st.button("❌ 닫기", use_container_width=True, key="close_file"):
+                    st.session_state.show_file_uploader = False
+                    st.rerun()
             
             # 게시글과 기존 게시글 구분선
             st.markdown("""
@@ -813,6 +830,9 @@ try:
                 # 파일 선택 초기화
                 st.session_state.selected_media_files = []
                 st.session_state.selected_other_files = []
+                # 업로더 표시 상태도 초기화
+                st.session_state.show_media_uploader = False
+                st.session_state.show_file_uploader = False
                 st.rerun()
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
