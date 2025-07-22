@@ -235,18 +235,24 @@ st.markdown("""
     margin-bottom: 24px;
 }
 .post-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 12px !important;
+    padding: 0 !important;
+    width: 100% !important;
 }
 .post-author {
-    font-weight: 600;
-    color: #1da1f2;
-    margin-right: 8px;
+    font-weight: 600 !important;
+    color: #1da1f2 !important;
+    margin: 0 !important;
+    flex: 1 !important;
 }
 .post-time {
-    color: #aaa;
-    font-size: 13px;
+    color: #aaa !important;
+    font-size: 13px !important;
+    margin: 0 !important;
+    text-align: right !important;
 }
 
 .stButton > button {
@@ -647,14 +653,15 @@ try:
                 with st.container():
                     st.markdown('''
                     <div class="post-card" style="
-                        background: #f5f6fa !important;
-                        border: 3px solid #999999 !important;
-                        border-radius: 16px !important;
-                        box-shadow: 0 1px 6px rgba(0,0,0,0.04) !important;
-                        padding: 18px 20px 12px 20px !important;
-                        margin-bottom: 24px !important;
+                        background: #f8f9fa !important;
+                        border: 2px solid #dee2e6 !important;
+                        border-radius: 12px !important;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+                        padding: 20px !important;
+                        margin-bottom: 20px !important;
                         display: block !important;
                         width: 100% !important;
+                        box-sizing: border-box !important;
                     ">
                     ''', unsafe_allow_html=True)
                     st.markdown(
