@@ -466,6 +466,42 @@ div[data-testid="stVerticalBlock"] > div[style*="border"] {
     .youtube-thumbnail-container {
         height: 220px;
     }
+    /* 모바일에서 첨부된 미디어 크기 최적화 */
+    .post-card-light {
+        padding: 16px !important;
+        margin-bottom: 16px !important;
+    }
+}
+
+/* 첨부된 미디어의 최대 높이 제한 (모든 화면 크기) */
+.post-card-light img {
+    max-height: 400px !important;
+    width: 100% !important;
+    object-fit: contain !important;
+}
+
+.post-card-light video {
+    max-height: 300px !important;
+    width: 100% !important;
+    object-fit: contain !important;
+}
+
+@media (max-width: 768px) {
+    .post-card-light img {
+        max-height: 250px !important;
+    }
+    .post-card-light video {
+        max-height: 200px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .post-card-light img {
+        max-height: 200px !important;
+    }
+    .post-card-light video {
+        max-height: 150px !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -899,14 +935,14 @@ try:
                             if file_type == "image":
                                 files_parts.append(f'''
                                 <div style="text-align:center; margin: 16px 0;">
-                                    <img src="data:image/{ext};base64,{file_b64}" style="max-width:600px; max-height:600px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); display:block; margin:0 auto;" />
+                                    <img src="data:image/{ext};base64,{file_b64}" style="width: 100%; max-width: 100%; height: auto; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); display:block; margin:0 auto; object-fit: contain;" />
                                     <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
                                 </div>
                                 ''')
                             elif file_type == "audio":
                                 files_parts.append(f'''
                                 <div style="text-align:center; margin: 16px 0;">
-                                    <audio controls style="width: 100%; max-width: 350px; margin:0 auto; display:block;">
+                                    <audio controls style="width: 100%; max-width: 100%; margin:0 auto; display:block;">
                                         <source src="data:audio/{ext};base64,{file_b64}" type="audio/{ext}">
                                         지원되지 않는 오디오 형식입니다.
                                     </audio>
@@ -916,7 +952,7 @@ try:
                             elif file_type == "video":
                                 files_parts.append(f'''
                                 <div style="text-align:center; margin: 16px 0;">
-                                    <video controls style="width: 100%; max-width: 350px; margin:0 auto; display:block; border-radius:8px;">
+                                    <video controls style="width: 100%; max-width: 100%; height: auto; margin:0 auto; display:block; border-radius:8px; object-fit: contain;">
                                         <source src="data:video/{ext};base64,{file_b64}" type="video/{ext}">
                                         지원되지 않는 비디오 형식입니다.
                                     </video>
