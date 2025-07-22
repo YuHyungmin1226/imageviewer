@@ -570,6 +570,11 @@ try:
                         if supabase_save_post(new_post):
                             posts.insert(0, new_post)
                             st.success("게시물이 등록되었습니다!")
+                        else:
+                            # Supabase 저장 실패시 로컬로 저장
+                            posts.insert(0, new_post)
+                            safe_save_json(POSTS_PATH, posts)
+                            st.success("게시물이 등록되었습니다! (로컬 모드)")
                     else:
                         posts.insert(0, new_post)
                         safe_save_json(POSTS_PATH, posts)

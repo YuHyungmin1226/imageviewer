@@ -16,6 +16,7 @@ CREATE TABLE posts (
     content TEXT NOT NULL,
     author TEXT NOT NULL,
     files JSONB DEFAULT '[]',
+    url_previews JSONB DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     likes TEXT[] DEFAULT '{}',
