@@ -669,11 +669,14 @@ try:
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
             for idx, post in enumerate(visible_posts):
-                # URL을 클릭 가능한 링크로 변환
+                # HTML 특수문자 이스케이프 처리 후 URL 링크 변환
                 import re
-                content_with_links = post["content"]
+                import html
+                # HTML 특수문자 안전하게 처리
+                safe_content = html.escape(post["content"])
+                # URL을 클릭 가능한 링크로 변환
                 url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
-                content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', content_with_links)
+                content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', safe_content)
                 
                 # 댓글 영역 HTML 생성 (항상 표시)
                 comments_section = '<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">'
@@ -681,13 +684,17 @@ try:
                 # 기존 댓글들 표시
                 if post.get("comments", []):
                     for c in post.get("comments", []):
+                        # HTML 특수문자 이스케이프 처리
+                        safe_author = c['author'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+                        safe_content = c['content'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+                        
                         comments_section += f'''
                         <div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;">
                             <div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">
-                                {c['author']} 
+                                {safe_author} 
                                 <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span>
                             </div>
-                            <div style="font-size: 14px; line-height: 1.4; color: #333;">{c['content']}</div>
+                            <div style="font-size: 14px; line-height: 1.4; color: #333;">{safe_content}</div>
                         </div>
                         '''
                 else:
