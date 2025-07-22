@@ -8,6 +8,7 @@ import io
 import hashlib
 from secure_auth import SecureAuth
 from session_manager import SessionManager
+from url_utils import URLPreviewGenerator
 
 # Supabase 연동
 USE_SUPABASE = False
@@ -54,7 +55,20 @@ def supabase_load_posts():
         return []
     try:
         response = supabase.table('posts').select('*').order('created_at', desc=True).execute()
-        return response.data
+        posts_data = response.data
+        
+        # URL 미리보기 데이터를 JSON에서 파싱
+        for post in posts_data:
+            if 'url_previews' in post and isinstance(post['url_previews'], str):
+                try:
+                    import json
+                    post['url_previews'] = json.loads(post['url_previews'])
+                except:
+                    post['url_previews'] = []
+            elif 'url_previews' not in post:
+                post['url_previews'] = []
+        
+        return posts_data
     except Exception as e:
         st.warning(f"Supabase 게시글 로드 실패: {e}")
         return []
@@ -63,7 +77,14 @@ def supabase_save_post(post_data):
     if not USE_SUPABASE or supabase is None:
         return False
     try:
-        supabase.table('posts').insert(post_data).execute()
+        # URL 미리보기 데이터를 JSON 문자열로 변환
+        if 'url_previews' in post_data:
+            import json
+            post_data_copy = post_data.copy()
+            post_data_copy['url_previews'] = json.dumps(post_data['url_previews'], ensure_ascii=False)
+            supabase.table('posts').insert(post_data_copy).execute()
+        else:
+            supabase.table('posts').insert(post_data).execute()
         return True
     except Exception as e:
         st.warning(f"Supabase 게시글 저장 실패: {e}")
@@ -157,6 +178,9 @@ def hash_password(password):
 secure_auth = SecureAuth(USERS_PATH, SESSION_PATH)
 session_manager = SessionManager(SESSION_PATH)
 
+# URL 미리보기 생성기 초기화
+url_preview_generator = URLPreviewGenerator()
+
 # 세션 상태 초기화
 if 'session_id' not in st.session_state:
     st.session_state.session_id = None
@@ -235,6 +259,94 @@ st.markdown("""
     align-items: center;
     gap: 10px;
     margin-bottom: 8px;
+}
+
+/* URL 미리보기 스타일 */
+.url-preview-card {
+    border: 1px solid #e1e8ed;
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 12px 0;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease;
+}
+.url-preview-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.url-preview-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+.url-preview-content {
+    display: flex;
+    min-height: 125px;
+}
+.url-preview-content-no-image {
+    padding: 16px;
+}
+.url-preview-image {
+    width: 125px;
+    min-width: 125px;
+    background: #f7f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.url-preview-image img {
+    width: 100%;
+    height: 125px;
+    object-fit: cover;
+}
+.url-preview-text {
+    padding: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.url-preview-title {
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.3;
+    color: #14171a;
+    margin-bottom: 4px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.url-preview-description {
+    font-size: 14px;
+    line-height: 1.4;
+    color: #657786;
+    margin-bottom: 8px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.url-preview-site {
+    font-size: 13px;
+    color: #657786;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 600px) {
+    .url-preview-content {
+        flex-direction: column;
+    }
+    .url-preview-image {
+        width: 100%;
+        min-width: auto;
+        height: 200px;
+    }
+    .url-preview-image img {
+        height: 200px;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -440,11 +552,15 @@ try:
                         except Exception as e:
                             st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
                             # 파일 업로드 실패해도 게시글은 작성 가능
+                    # URL 미리보기 처리
+                    processed_content, url_previews = url_preview_generator.process_text_with_urls(content)
+                    
                     new_post = {
                         "id": str(uuid.uuid4()),
                         "content": content,
                         "author": st.session_state.current_user,
                         "files": uploaded_files,
+                        "url_previews": url_previews,
                         "created_at": datetime.now().isoformat(),
                         "likes": [],
                         "comments": [],
@@ -470,10 +586,34 @@ try:
                         f'</div>',
                         unsafe_allow_html=True
                     )
+                    # 게시글 내용 표시
+                    content_with_links = post["content"]
+                    
+                    # URL을 클릭 가능한 링크로 변환
+                    import re
+                    url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
+                    content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', content_with_links)
+                    
                     st.markdown(
-                        f'<div style="font-size:17px; margin-bottom:10px; white-space:pre-wrap">{post["content"]}</div>',
+                        f'<div style="font-size:17px; margin-bottom:10px; white-space:pre-wrap">{content_with_links}</div>',
                         unsafe_allow_html=True
                     )
+                    
+                    # URL 미리보기 표시
+                    if post.get("url_previews"):
+                        for preview in post["url_previews"]:
+                            url_preview_generator.render_url_preview(preview)
+                    else:
+                        # 기존 게시글에서 URL 감지 및 미리보기 생성
+                        urls = url_preview_generator.extract_urls(post["content"])
+                        if urls:
+                            for url in urls[:2]:  # 최대 2개까지만 미리보기
+                                try:
+                                    preview = url_preview_generator.get_url_preview(url)
+                                    if preview:
+                                        url_preview_generator.render_url_preview(preview)
+                                except:
+                                    pass  # 미리보기 생성 실패시 무시
                     for file in post.get("files", []):
                         file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
                         audio_exts = [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg"]
