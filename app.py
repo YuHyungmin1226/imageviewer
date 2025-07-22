@@ -31,13 +31,7 @@ POSTS_PATH = os.path.join(BASE_DIR, "posts.json")
 USERS_PATH = os.path.join(BASE_DIR, "users.json")
 SESSION_PATH = os.path.join(BASE_DIR, "session.json")
 UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
-
-# Streamlit Cloud에서는 읽기 전용이므로 업로드 디렉토리 생성 시도
-try:
-    os.makedirs(UPLOADS_DIR, exist_ok=True)
-except Exception:
-    # Streamlit Cloud에서는 파일 시스템 쓰기 권한이 제한적
-    pass
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 # Supabase 데이터베이스 함수들
 def supabase_load_posts():
@@ -418,7 +412,7 @@ try:
                     pass
                 if st.session_state.file_upload_open:
                     files = st.file_uploader(
-                        "파일 첨부 (최대 10개, 로컬에서만 저장됨)", 
+                        "파일 첨부 (최대 10개)", 
                         accept_multiple_files=True, 
                         type=["png","jpg","jpeg","gif","bmp","webp","mp4","avi","mov","wmv","flv","webm","mkv","mp3","wav","flac","aac","ogg","m4a"]
                     )
@@ -439,8 +433,7 @@ try:
                                 "size": os.path.getsize(file_path)
                             })
                         except Exception as e:
-                            st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
-                            # 파일 업로드 실패해도 게시글은 작성 가능
+                            st.warning(f"파일 업로드 오류: {e}")
                     new_post = {
                         "id": str(uuid.uuid4()),
                         "content": content,
@@ -501,7 +494,7 @@ try:
                             else:
                                 st.write(f"첨부파일: {file['original_name']}")
                         except Exception as e:
-                            st.warning(f"첨부파일 표시 실패 (Streamlit Cloud에서는 파일 접근이 제한됨): {e}")
+                            st.warning(f"첨부파일 표시 오류: {e}")
                     col1, col2, col3, col4 = st.columns([1,1,1,1])
                     liked = st.session_state.current_user in post.get("likes",[])
                     like_count = len(post.get("likes", []))
@@ -539,7 +532,6 @@ try:
                                     if os.path.exists(file_path):
                                         os.remove(file_path)
                                 except Exception:
-                                    # Streamlit Cloud에서는 파일 삭제가 제한적
                                     pass
                             if USE_SUPABASE:
                                 if supabase_delete_post(post['id']):
