@@ -619,10 +619,96 @@ try:
             st.markdown("### 📝 게시물 작성")
             # 2024-07-22 파일첨부 제거됨
             
+            # 세션 상태 초기화
+            if "selected_media_files" not in st.session_state:
+                st.session_state.selected_media_files = []
+            if "selected_other_files" not in st.session_state:
+                st.session_state.selected_other_files = []
+            
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
                 
-                submitted = st.form_submit_button("게시", use_container_width=True, type="primary")
+                # 첨부된 파일 목록 표시
+                all_files = st.session_state.selected_media_files + st.session_state.selected_other_files
+                if all_files:
+                    st.markdown("**📎 첨부된 파일:**")
+                    for file_info in all_files:
+                        file_size_mb = file_info['size'] / (1024 * 1024)
+                        file_type = "🎵" if file_info['type'] == "audio" else "🎬" if file_info['type'] == "video" else "🖼️" if file_info['type'] == "image" else "📄"
+                        st.write(f"{file_type} {file_info['name']} ({file_size_mb:.2f} MB)")
+                
+                # 3개 컬럼으로 버튼 배치
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    submitted = st.form_submit_button("📝 게시", use_container_width=True, type="primary")
+                with col2:
+                    media_btn = st.form_submit_button("🎬 사진/영상", use_container_width=True)
+                with col3:
+                    file_btn = st.form_submit_button("📁 파일", use_container_width=True)
+            
+            # 사진/영상 첨부 처리
+            if media_btn:
+                st.markdown("### 🎬 사진/영상 첨부")
+                media_files = st.file_uploader(
+                    "사진이나 영상을 선택하세요",
+                    accept_multiple_files=True,
+                    type=["png", "jpg", "jpeg", "gif", "bmp", "webp", "mp4", "avi", "mov", "wmv", "flv", "webm", "mkv"],
+                    key="media_uploader"
+                )
+                
+                if media_files:
+                    for file in media_files:
+                        file_type = "image" if file.type.startswith("image/") else "video"
+                        file_info = {
+                            'name': file.name,
+                            'size': file.size,
+                            'type': file_type,
+                            'file_obj': file
+                        }
+                        if file_info not in st.session_state.selected_media_files:
+                            st.session_state.selected_media_files.append(file_info)
+                    
+                    col_confirm, col_clear = st.columns([1, 1])
+                    with col_confirm:
+                        if st.button("✅ 첨부 완료", use_container_width=True, type="primary"):
+                            st.success("미디어 파일이 첨부되었습니다!")
+                            st.rerun()
+                    with col_clear:
+                        if st.button("🗑️ 초기화", use_container_width=True):
+                            st.session_state.selected_media_files = []
+                            st.rerun()
+            
+            # 기타 파일 첨부 처리
+            if file_btn:
+                st.markdown("### 📁 파일 첨부")
+                other_files = st.file_uploader(
+                    "음악, 문서 등의 파일을 선택하세요",
+                    accept_multiple_files=True,
+                    type=["mp3", "wav", "flac", "aac", "ogg", "m4a", "pdf", "txt", "doc", "docx", "xlsx", "pptx"],
+                    key="file_uploader"
+                )
+                
+                if other_files:
+                    for file in other_files:
+                        file_type = "audio" if file.type.startswith("audio/") or file.name.lower().endswith(('.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a')) else "document"
+                        file_info = {
+                            'name': file.name,
+                            'size': file.size,
+                            'type': file_type,
+                            'file_obj': file
+                        }
+                        if file_info not in st.session_state.selected_other_files:
+                            st.session_state.selected_other_files.append(file_info)
+                    
+                    col_confirm, col_clear = st.columns([1, 1])
+                    with col_confirm:
+                        if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key="file_confirm"):
+                            st.success("파일이 첨부되었습니다!")
+                            st.rerun()
+                    with col_clear:
+                        if st.button("🗑️ 초기화", use_container_width=True, key="file_clear"):
+                            st.session_state.selected_other_files = []
+                            st.rerun()
             
             # 게시글과 기존 게시글 구분선
             st.markdown("""
@@ -637,6 +723,29 @@ try:
             
             # 게시글 처리 로직
             if submitted and content.strip():
+                # 모든 첨부 파일 처리
+                uploaded_files = []
+                all_selected_files = st.session_state.selected_media_files + st.session_state.selected_other_files
+                
+                for file_info in all_selected_files:
+                    try:
+                        file_id = f"{uuid.uuid4().hex}_{file_info['name']}"
+                        file_path = os.path.join(UPLOADS_DIR, file_id)
+                        
+                        # 파일 저장
+                        file_content = file_info['file_obj'].read()
+                        with open(file_path, "wb") as f_out:
+                            f_out.write(file_content)
+                        
+                        uploaded_files.append({
+                            "original_name": file_info['name'],
+                            "saved_name": file_id,
+                            "file_type": file_info['type'],
+                            "size": file_info['size']
+                        })
+                    except Exception as e:
+                        st.warning(f"파일 업로드 실패 (Streamlit Cloud에서는 파일 저장이 제한됨): {e}")
+                
                 # URL 미리보기 처리
                 processed_content, url_previews = url_preview_generator.process_text_with_urls(content)
                 
@@ -644,7 +753,7 @@ try:
                     "id": str(uuid.uuid4()),
                     "content": content,
                     "author": st.session_state.current_user,
-                    "files": [],  # 파일 첨부 기능 제거로 항상 빈 배열
+                    "files": uploaded_files,
                     "url_previews": url_previews,
                     "created_at": datetime.now().isoformat(),
                     "comments": [],
@@ -665,6 +774,9 @@ try:
                     safe_save_json(POSTS_PATH, posts)
                     st.success("게시물이 등록되었습니다!")
                 
+                # 파일 선택 초기화
+                st.session_state.selected_media_files = []
+                st.session_state.selected_other_files = []
                 st.rerun()
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
@@ -721,6 +833,55 @@ try:
                     {comments_section}
                 </div>
                 ''', unsafe_allow_html=True)
+                
+                # 첨부된 파일 표시 (카드 밖)
+                if post.get("files", []):
+                    st.markdown("**📎 첨부된 파일:**")
+                    for file in post.get("files", []):
+                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
+                        try:
+                            if file["file_type"] == "audio":
+                                # 음악 파일 - 플레이어 표시
+                                st.markdown(f"🎵 **{file['original_name']}**")
+                                if os.path.exists(file_path):
+                                    st.audio(file_path)
+                                else:
+                                    st.info("파일을 재생할 수 없습니다 (Streamlit Cloud 제약)")
+                            
+                            elif file["file_type"] == "video":
+                                # 비디오 파일 - 비디오 플레이어 표시
+                                st.markdown(f"🎬 **{file['original_name']}**")
+                                if os.path.exists(file_path):
+                                    st.video(file_path)
+                                else:
+                                    st.info("비디오를 재생할 수 없습니다 (Streamlit Cloud 제약)")
+                            
+                            elif file["file_type"] == "image":
+                                # 이미지 파일 - 이미지 표시
+                                st.markdown(f"🖼️ **{file['original_name']}**")
+                                if os.path.exists(file_path):
+                                    st.image(file_path, use_container_width=True, caption=file['original_name'])
+                                else:
+                                    st.info("이미지를 표시할 수 없습니다 (Streamlit Cloud 제약)")
+                            
+                            else:
+                                # 기타 문서 파일 - 다운로드 링크
+                                file_size_mb = file.get('size', 0) / (1024 * 1024)
+                                st.markdown(f"📄 **{file['original_name']}** ({file_size_mb:.2f} MB)")
+                                if os.path.exists(file_path):
+                                    with open(file_path, "rb") as f:
+                                        st.download_button(
+                                            label=f"📥 {file['original_name']} 다운로드",
+                                            data=f.read(),
+                                            file_name=file['original_name'],
+                                            mime="application/octet-stream",
+                                            use_container_width=True
+                                        )
+                                else:
+                                    st.info("파일을 다운로드할 수 없습니다 (Streamlit Cloud 제약)")
+                        
+                        except Exception as e:
+                            st.warning(f"파일 처리 오류: {file['original_name']} - {e}")
                 
                 # URL 미리보기 표시 (카드 밖)
                 if post.get("url_previews"):
