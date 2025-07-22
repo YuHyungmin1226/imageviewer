@@ -62,7 +62,7 @@ class SessionManager:
         
         # IP 주소 변경 확인 (선택적)
         current_ip = self._get_client_ip()
-        if session.get("ip_address") != current_ip:
+        if isinstance(session, dict) and session.get("ip_address") != current_ip:
             st.warning("보안을 위해 다시 로그인해주세요.")
             self._remove_session(session_id)
             return None
@@ -76,6 +76,8 @@ class SessionManager:
     def _is_session_expired(self, session: Dict) -> bool:
         """세션 만료 확인"""
         try:
+            if not isinstance(session, dict):
+                return True
             last_activity = datetime.fromisoformat(session["last_activity"])
             now = datetime.now()
             return (now - last_activity) > timedelta(hours=self.session_timeout_hours)
@@ -86,7 +88,7 @@ class SessionManager:
         """사용자의 모든 세션 무효화"""
         sessions_to_remove = []
         for session_id, session in self.sessions.items():
-            if session.get("username") == username:
+            if isinstance(session, dict) and session.get("username") == username:
                 sessions_to_remove.append(session_id)
         
         for session_id in sessions_to_remove:
@@ -141,6 +143,6 @@ class SessionManager:
         """사용자의 활성 세션 목록"""
         user_sessions = {}
         for session_id, session in self.sessions.items():
-            if session.get("username") == username:
+            if isinstance(session, dict) and session.get("username") == username:
                 user_sessions[session_id] = session
         return user_sessions 
