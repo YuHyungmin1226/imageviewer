@@ -599,6 +599,7 @@ try:
                 st.rerun()
             # 게시물 작성 영역
             st.markdown("### 📝 게시물 작성")
+            # 2024-07-22 파일첨부 제거됨
             
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
