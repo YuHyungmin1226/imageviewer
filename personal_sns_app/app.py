@@ -890,10 +890,7 @@ try:
                         safe_author = html.escape(c['author'])
                         safe_content = html.escape(c['content'])
                         
-                        comment_html = f'''<div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;">
-<div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">{safe_author} <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span></div>
-<div style="font-size: 14px; line-height: 1.4; color: #333;">{safe_content}</div>
-</div>'''
+                        comment_html = f'<div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;"><div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">{safe_author} <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span></div><div style="font-size: 14px; line-height: 1.4; color: #333;">{safe_content}</div></div>'
                         comments_parts.append(comment_html)
                 else:
                     # 댓글이 없을 때 안내 메시지
@@ -954,42 +951,19 @@ try:
                             files_parts.append(f'<div style="color:#888; font-size:13px; margin:16px 0; text-align:center;">파일을 표시할 수 없습니다 (Streamlit Cloud 제약)</div>')
                     files_parts.append('</div>')
                     files_section = ''.join(files_parts)
-                # 카드 본문(작성자/내용/파일)만 st.markdown으로 출력
-                st.markdown(f'''
-                <div style="
-                    background: white;
-                    border: 1px solid #e1e8ed;
-                    border-radius: 16px 16px 0 0;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                    padding: 24px;
-                    margin-bottom: 0;
-                    width: 100%;
-                    box-sizing: border-box;
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <span style="font-weight: 600; color: #1da1f2; margin: 0;">{post["author"]}</span>
-                        <span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>
-                    </div>
-                    <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>
-                    {files_section}
-                </div>
-                ''', unsafe_allow_html=True)
-                # 댓글 영역은 바로 아래에서 별도 출력 (카드 하단처럼 보이게)
-                st.markdown(f'''
-                <div style="
-                    background: white;
-                    border: 1px solid #e1e8ed;
-                    border-top: none;
-                    border-radius: 0 0 16px 16px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                    padding: 0 24px 16px 24px;
-                    margin-bottom: 24px;
-                    width: 100%;
-                    box-sizing: border-box;
-                ">
-                {comments_section}
-                </div>
-                ''', unsafe_allow_html=True)
+                # 카드 전체(작성자/내용/파일/댓글)를 하나의 HTML로 합쳐서 한 번에 출력
+                st.markdown(
+                    f'<div style="background: white; border: 1px solid #e1e8ed; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); padding: 24px; margin-bottom: 24px; width: 100%; box-sizing: border-box;">'
+                    f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">'
+                    f'<span style="font-weight: 600; color: #1da1f2; margin: 0;">{post["author"]}</span>'
+                    f'<span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>'
+                    f'</div>'
+                    f'<div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>'
+                    f'{files_section}'
+                    f'{comments_section}'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
                 
                 # URL 미리보기 표시 (카드 밖)
                 if post.get("url_previews"):
