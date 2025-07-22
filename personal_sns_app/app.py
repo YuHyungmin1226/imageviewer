@@ -888,6 +888,7 @@ try:
                 # 첨부 파일 HTML+플레이어 생성
                 files_section = ""
                 player_placeholders = []
+                image_fullview_placeholders = []
                 if post.get("files", []):
                     files_parts = []
                     files_parts.append('<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">')
@@ -912,13 +913,17 @@ try:
                             </div>
                         </div>'''
                         files_parts.append(file_html)
-                        # 플레이어/다운로드 버튼은 카드 밖에 붙여서 표시할 수 있도록 인덱스만 저장
-                        player_placeholders.append((file["file_type"], idx, file["saved_name"], file['original_name']))
+                        # 이미지면 썸네일+전체보기 버튼, 아니면 플레이어/다운로드 인덱스 저장
+                        if file["file_type"] == "image":
+                            files_parts.append(f'__IMAGE_THUMB_{idx}__')
+                            image_fullview_placeholders.append((idx, file["saved_name"], file['original_name']))
+                        else:
+                            player_placeholders.append((file["file_type"], idx, file["saved_name"], file['original_name']))
                     files_parts.append('</div>')
                     files_section = ''.join(files_parts)
                 
                 # 완전한 게시글 카드 HTML (댓글 + 첨부파일 + 댓글 포함)
-                st.markdown(f'''
+                html_card = f'''
                 <div style="
                     background: white;
                     border: 1px solid #e1e8ed;
@@ -937,9 +942,37 @@ try:
                     {files_section}
                     {comments_section}
                 </div>
-                ''', unsafe_allow_html=True)
-                
-                # 플레이어/이미지/다운로드는 카드 바로 아래에 최대한 붙여서 표시
+                '''
+                # 이미지 썸네일/전체보기 버튼, 오디오/비디오/다운로드를 placeholder로 분리
+                import re
+                split_html = re.split(r'(__IMAGE_THUMB_\d+__)', html_card)
+                for part in split_html:
+                    m_thumb = re.match(r'__IMAGE_THUMB_(\d+)__', part)
+                    if m_thumb:
+                        idx = int(m_thumb.group(1))
+                        file = post["files"][idx]
+                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
+                        # 썸네일(최대 250x250, 긴 쪽 맞춤)
+                        st.markdown('<div style="margin: 8px 0 0 36px;">', unsafe_allow_html=True)
+                        st.image(file_path, width=250, clamp=True, caption=None)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        # 전체보기 버튼
+                        fullview_key = f"fullview_{post['id']}_{idx}"
+                        if fullview_key not in st.session_state:
+                            st.session_state[fullview_key] = False
+                        if st.button("🔍 전체보기", key=fullview_key, help="이미지를 크게 보기", use_container_width=False):
+                            st.session_state[fullview_key] = not st.session_state[fullview_key]
+                    else:
+                        st.markdown(part, unsafe_allow_html=True)
+                # 전체보기 상태면 카드 아래에 원본 이미지 표시
+                for idx, saved_name, original_name in image_fullview_placeholders:
+                    fullview_key = f"fullview_{post['id']}_{idx}"
+                    if st.session_state.get(fullview_key, False):
+                        file_path = os.path.join(UPLOADS_DIR, saved_name)
+                        st.markdown('<div style="margin: 0 0 16px 36px;">', unsafe_allow_html=True)
+                        st.image(file_path, caption=original_name, use_container_width=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
+                # 오디오/비디오/다운로드는 카드 바로 아래에 최대한 붙여서 표시
                 for file_type, idx, saved_name, original_name in player_placeholders:
                     file_path = os.path.join(UPLOADS_DIR, saved_name)
                     style = {'audio': 'margin-top:0;margin-bottom:16px;',
@@ -960,13 +993,6 @@ try:
                             st.markdown('</div>', unsafe_allow_html=True)
                         else:
                             st.markdown(f'<div style="color:#888; font-size:13px; margin:4px 0 8px 36px;{style}">비디오를 재생할 수 없습니다 (Streamlit Cloud 제약)</div>', unsafe_allow_html=True)
-                    elif file_type == "image":
-                        if os.path.exists(file_path):
-                            st.markdown(f'<div style="{style}">', unsafe_allow_html=True)
-                            st.image(file_path, use_container_width=True, caption=original_name)
-                            st.markdown('</div>', unsafe_allow_html=True)
-                        else:
-                            st.markdown(f'<div style="color:#888; font-size:13px; margin:4px 0 8px 36px;{style}">이미지를 표시할 수 없습니다 (Streamlit Cloud 제약)</div>', unsafe_allow_html=True)
                     else:
                         if os.path.exists(file_path):
                             st.markdown(f'<div style="{style}">', unsafe_allow_html=True)
