@@ -56,4 +56,11 @@ session.json
 .idea/
 *.swp
 *.swo
-*~ 
+*~
+
+# Project specific
+*.db
+*.sqlite
+logs/
+temp/
+tmp/
