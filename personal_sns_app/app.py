@@ -322,17 +322,21 @@ try:
                 
                 # 로그인 시도 정보 (관리자용)
                 if st.session_state.current_user:
-                    login_info = secure_auth.get_login_attempts_info(st.session_state.current_user)
-                    if login_info['count'] > 0:
-                        st.warning(f"로그인 시도: {login_info['count']}회")
-                    if login_info['locked']:
-                        st.error(f"계정 잠금: {login_info['remaining_time']}분 남음")
+                    try:
+                        login_info = secure_auth.get_login_attempts_info(st.session_state.current_user)
+                        if isinstance(login_info, dict):
+                            if login_info.get('count', 0) > 0:
+                                st.warning(f"로그인 시도: {login_info['count']}회")
+                            if login_info.get('locked', False):
+                                st.error(f"계정 잠금: {login_info['remaining_time']}분 남음")
+                    except Exception as e:
+                        st.debug(f"로그인 정보 로드 오류: {e}")
                 
                 # 사용자 목록 표시 (매번 새로 로드)
                 if USE_SUPABASE:
                     try:
                         response = supabase.table('users').select('username, created_at').execute()
-                        all_users = response.data
+                        all_users = response.data if response.data else []
                         st.info(f"Supabase에서 로드된 사용자 수: {len(all_users)}")
                     except Exception as e:
                         st.error(f"사용자 목록 로드 오류: {e}")
@@ -344,38 +348,46 @@ try:
                 if all_users:
                     st.write("**등록된 사용자 목록:**")
                     for user in all_users:
-                        if user["username"] != "admin":  # admin 제외
+                        if isinstance(user, dict) and user.get("username") != "admin":  # admin 제외
                             col1, col2, col3 = st.columns([3, 2, 1])
                             with col1:
-                                st.write(f"👤 {user['username']}")
+                                st.write(f"👤 {user.get('username', 'Unknown')}")
                             with col2:
-                                st.write(f"가입일: {user.get('created_at', 'N/A')[:10] if user.get('created_at') else 'N/A'}")
+                                created_at = user.get('created_at', 'N/A')
+                                if created_at and created_at != 'N/A':
+                                    try:
+                                        st.write(f"가입일: {created_at[:10]}")
+                                    except:
+                                        st.write("가입일: N/A")
+                                else:
+                                    st.write("가입일: N/A")
                             with col3:
-                                if st.button(f"삭제", key=f"delete_user_{user['username']}", use_container_width=True):
-                                    if USE_SUPABASE:
-                                        try:
-                                            st.info(f"사용자 '{user['username']}' 삭제 중...")
-                                            # 해당 사용자의 게시글도 함께 삭제
-                                            posts_response = supabase.table('posts').delete().eq('author', user['username']).execute()
-                                            st.info(f"게시글 {len(posts_response.data) if posts_response.data else 0}개 삭제됨")
-                                            
-                                            # 사용자 삭제
-                                            user_response = supabase.table('users').delete().eq('username', user['username']).execute()
-                                            st.success(f"사용자 '{user['username']}'가 삭제되었습니다.")
+                                if st.button(f"삭제", key=f"delete_user_{user.get('username', 'unknown')}", use_container_width=True):
+                                    username = user.get('username', '')
+                                    if username:
+                                        if USE_SUPABASE:
+                                            try:
+                                                st.info(f"사용자 '{username}' 삭제 중...")
+                                                # 해당 사용자의 게시글도 함께 삭제
+                                                posts_response = supabase.table('posts').delete().eq('author', username).execute()
+                                                st.info(f"게시글 {len(posts_response.data) if posts_response.data else 0}개 삭제됨")
+                                                
+                                                # 사용자 삭제
+                                                user_response = supabase.table('users').delete().eq('username', username).execute()
+                                                st.success(f"사용자 '{username}'가 삭제되었습니다.")
+                                                st.rerun()
+                                            except Exception as e:
+                                                st.error(f"사용자 삭제 오류: {e}")
+                                        else:
+                                            # 로컬 파일에서 삭제
+                                            if username in users:
+                                                del users[username]
+                                                safe_save_json(USERS_PATH, users)
+                                            # 해당 사용자의 게시글도 삭제
+                                            posts[:] = [post for post in posts if post.get("author") != username]
+                                            safe_save_json(POSTS_PATH, posts)
+                                            st.success(f"사용자 '{username}'가 삭제되었습니다.")
                                             st.rerun()
-                                        except Exception as e:
-                                            st.error(f"사용자 삭제 오류: {e}")
-                                            st.error(f"오류 상세: {str(e)}")
-                                    else:
-                                        # 로컬 파일에서 삭제
-                                        if user['username'] in users:
-                                            del users[user['username']]
-                                            safe_save_json(USERS_PATH, users)
-                                        # 해당 사용자의 게시글도 삭제
-                                        posts[:] = [post for post in posts if post["author"] != user['username']]
-                                        safe_save_json(POSTS_PATH, posts)
-                                        st.success(f"사용자 '{user['username']}'가 삭제되었습니다.")
-                                        st.rerun()
                 else:
                     st.write("등록된 사용자가 없습니다.")
                 
