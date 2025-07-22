@@ -226,6 +226,16 @@ st.markdown("""
 .stTextInput, .stTextArea, .stButton {
     margin-bottom: 18px;
 }
+/* Streamlit 기본 컨테이너 테두리 제거 */
+.element-container, .block-container, .main .block-container {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+[data-testid="stVerticalBlock"] > [style*="border"] {
+    border: none !important;
+    background: transparent !important;
+}
 .post-card {
     background: #f5f6fa;
     border: 2px solid #d1d9e0;
@@ -650,99 +660,98 @@ try:
             # 포스트 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
             for idx, post in enumerate(visible_posts):
-                with st.container():
-                    st.markdown('''
-                    <div class="post-card" style="
-                        background: #f8f9fa !important;
-                        border: 2px solid #dee2e6 !important;
-                        border-radius: 12px !important;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
-                        padding: 20px !important;
-                        margin-bottom: 20px !important;
-                        display: block !important;
-                        width: 100% !important;
-                        box-sizing: border-box !important;
-                    ">
-                    ''', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 12px !important; width: 100% !important;">'
-                        f'<span style="font-weight: 600 !important; color: #1da1f2 !important; margin: 0 !important;">{post["author"]}</span>'
-                        f'<span style="color: #666 !important; font-size: 13px !important; margin: 0 !important;">{post["created_at"][:16]}</span>'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
-                    # 게시글 내용 표시
-                    content_with_links = post["content"]
-                    
-                    # URL을 클릭 가능한 링크로 변환
-                    import re
-                    url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
-                    content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', content_with_links)
-                    
-                    st.markdown(
-                        f'<div style="font-size:17px; margin-bottom:10px; white-space:pre-wrap">{content_with_links}</div>',
-                        unsafe_allow_html=True
-                    )
-                    
-                    # URL 미리보기 표시
-                    if post.get("url_previews"):
-                        for preview in post["url_previews"]:
-                            url_preview_generator.render_url_preview(preview)
-                    else:
-                        # 기존 게시글에서 URL 감지 및 미리보기 생성
-                        urls = url_preview_generator.extract_urls(post["content"])
-                        if urls:
-                            for url in urls[:2]:  # 최대 2개까지만 미리보기
-                                try:
-                                    preview = url_preview_generator.get_url_preview(url)
-                                    if preview:
-                                        url_preview_generator.render_url_preview(preview)
-                                except:
-                                    pass  # 미리보기 생성 실패시 무시
-                    # 파일 첨부 기능 제거됨
-                    col1, col2, col3 = st.columns([1,1,1])
-                    if col1.button("댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
-                        if "comment_open" not in st.session_state:
-                            st.session_state["comment_open"] = {}
-                        st.session_state["comment_open"][post['id']] = not st.session_state["comment_open"].get(post['id'], False)
-                    if post["author"] == st.session_state.current_user:
-                        public_status = post.get("public", False)
-                        public_text = "공개" if public_status else "비공개"
-                        if col2.button(public_text, key=f"public_{post['id']}", use_container_width=True):
-                            post["public"] = not public_status
-                            if USE_SUPABASE:
-                                supabase_update_post(post['id'], {"public": post["public"]})
-                            else:
-                                safe_save_json(POSTS_PATH, posts)
-                            st.rerun()
-                    if post["author"] == st.session_state.current_user or st.session_state.current_user == "admin":
-                        if col3.button("삭제", key=f"delete_{post['id']}", use_container_width=True):
-                            # 파일 첨부 기능 제거로 파일 삭제 코드도 제거됨
-                            if USE_SUPABASE:
-                                if supabase_delete_post(post['id']):
-                                    posts.remove(post)
-                            else:
+                st.markdown('''
+                <div class="post-card" style="
+                    background: #f8f9fa !important;
+                    border: 2px solid #dee2e6 !important;
+                    border-radius: 12px !important;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+                    padding: 20px !important;
+                    margin-bottom: 20px !important;
+                    display: block !important;
+                    width: 100% !important;
+                    box-sizing: border-box !important;
+                ">
+                ''', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 12px !important; width: 100% !important;">'
+                    f'<span style="font-weight: 600 !important; color: #1da1f2 !important; margin: 0 !important;">{post["author"]}</span>'
+                    f'<span style="color: #666 !important; font-size: 13px !important; margin: 0 !important;">{post["created_at"][:16]}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                # 게시글 내용 표시
+                content_with_links = post["content"]
+                
+                # URL을 클릭 가능한 링크로 변환
+                import re
+                url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
+                content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', content_with_links)
+                
+                st.markdown(
+                    f'<div style="font-size:17px; margin-bottom:10px; white-space:pre-wrap">{content_with_links}</div>',
+                    unsafe_allow_html=True
+                )
+                
+                # URL 미리보기 표시
+                if post.get("url_previews"):
+                    for preview in post["url_previews"]:
+                        url_preview_generator.render_url_preview(preview)
+                else:
+                    # 기존 게시글에서 URL 감지 및 미리보기 생성
+                    urls = url_preview_generator.extract_urls(post["content"])
+                    if urls:
+                        for url in urls[:2]:  # 최대 2개까지만 미리보기
+                            try:
+                                preview = url_preview_generator.get_url_preview(url)
+                                if preview:
+                                    url_preview_generator.render_url_preview(preview)
+                            except:
+                                pass  # 미리보기 생성 실패시 무시
+                # 파일 첨부 기능 제거됨
+                col1, col2, col3 = st.columns([1,1,1])
+                if col1.button("댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
+                    if "comment_open" not in st.session_state:
+                        st.session_state["comment_open"] = {}
+                    st.session_state["comment_open"][post['id']] = not st.session_state["comment_open"].get(post['id'], False)
+                if post["author"] == st.session_state.current_user:
+                    public_status = post.get("public", False)
+                    public_text = "공개" if public_status else "비공개"
+                    if col2.button(public_text, key=f"public_{post['id']}", use_container_width=True):
+                        post["public"] = not public_status
+                        if USE_SUPABASE:
+                            supabase_update_post(post['id'], {"public": post["public"]})
+                        else:
+                            safe_save_json(POSTS_PATH, posts)
+                        st.rerun()
+                if post["author"] == st.session_state.current_user or st.session_state.current_user == "admin":
+                    if col3.button("삭제", key=f"delete_{post['id']}", use_container_width=True):
+                        # 파일 첨부 기능 제거로 파일 삭제 코드도 제거됨
+                        if USE_SUPABASE:
+                            if supabase_delete_post(post['id']):
                                 posts.remove(post)
+                        else:
+                            posts.remove(post)
+                            safe_save_json(POSTS_PATH, posts)
+                        st.rerun()
+                if "comment_open" in st.session_state and st.session_state["comment_open"].get(post['id'], False):
+                    with st.form(f"comment_form_{post['id']}", clear_on_submit=True):
+                        comment_text = st.text_input("댓글을 입력하세요", key=f"comment_input_{post['id']}")
+                        comment_submit = st.form_submit_button("댓글 등록")
+                        if comment_submit and comment_text.strip():
+                            post.setdefault("comments", []).append({
+                                "author": st.session_state.current_user,
+                                "content": comment_text,
+                                "timestamp": datetime.now().isoformat()
+                            })
+                            if USE_SUPABASE:
+                                supabase_update_post(post['id'], {"comments": post["comments"]})
+                            else:
                                 safe_save_json(POSTS_PATH, posts)
                             st.rerun()
-                    if "comment_open" in st.session_state and st.session_state["comment_open"].get(post['id'], False):
-                        with st.form(f"comment_form_{post['id']}", clear_on_submit=True):
-                            comment_text = st.text_input("댓글을 입력하세요", key=f"comment_input_{post['id']}")
-                            comment_submit = st.form_submit_button("댓글 등록")
-                            if comment_submit and comment_text.strip():
-                                post.setdefault("comments", []).append({
-                                    "author": st.session_state.current_user,
-                                    "content": comment_text,
-                                    "timestamp": datetime.now().isoformat()
-                                })
-                                if USE_SUPABASE:
-                                    supabase_update_post(post['id'], {"comments": post["comments"]})
-                                else:
-                                    safe_save_json(POSTS_PATH, posts)
-                                st.rerun()
-                    if post.get("comments", []):
-                        for c in post.get("comments", []):
-                            st.markdown(f"<div style='margin-left:10px; margin-bottom:4px; font-size:15px;'><b>{c['author']}</b> <span style='color:#aaa;font-size:12px'>{c['timestamp'][:16]}</span><br>{c['content']}</div>", unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                if post.get("comments", []):
+                    for c in post.get("comments", []):
+                        st.markdown(f"<div style='margin-left:10px; margin-bottom:4px; font-size:15px;'><b>{c['author']}</b> <span style='color:#aaa;font-size:12px'>{c['timestamp'][:16]}</span><br>{c['content']}</div>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 except Exception as e:
     st.error(f"예기치 않은 오류가 발생했습니다: {e}") 
