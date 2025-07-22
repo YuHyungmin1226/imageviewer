@@ -1,0 +1,13 @@
+# 환경변수 설정 예시
+# 이 파일을 .env로 복사하고 실제 값으로 수정하세요
+
+# Supabase 설정
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_KEY=your_supabase_anon_key_here
+
+# NEIS API 설정
+NEIS_API_KEY=your_neis_api_key_here
+
+# 애플리케이션 설정
+MAX_FILE_SIZE=10485760  # 10MB in bytes
+MAX_POST_LENGTH=500 
