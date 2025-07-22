@@ -885,56 +885,19 @@ try:
                 comments_parts.append('</div>')
                 comments_section = ''.join(comments_parts)
                 
-                # 완전한 게시글 카드 HTML (댓글 포함)
-                st.markdown(f'''
-                <div style="
-                    background: white;
-                    border: 1px solid #e1e8ed;
-                    border-radius: 16px 16px {('4px 4px' if post.get('files', []) else '16px 16px')};
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                    padding: 24px;
-                    margin-bottom: {('0px' if post.get('files', []) else '16px')};
-                    width: 100%;
-                    box-sizing: border-box;
-                ">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <span style="font-weight: 600; color: #1da1f2; margin: 0;">{post["author"]}</span>
-                        <span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>
-                    </div>
-                    <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>
-                    {comments_section}
-                </div>
-                ''', unsafe_allow_html=True)
-                
-                # 첨부된 파일 표시 (연결된 박스)
+                # 첨부 파일 HTML 생성
+                files_section = ""
                 if post.get("files", []):
-                    # 파일 박스 상단
-                    st.markdown('''
-                    <div style="
-                        background: #f8f9fa;
-                        border: 1px solid #e1e8ed;
-                        border-top: none;
-                        border-radius: 0 0 16px 16px;
-                        padding: 16px 24px;
-                        margin-bottom: 16px;
-                        width: 100%;
-                        box-sizing: border-box;
-                    ">
-                        <div style="font-weight: 600; color: #666; font-size: 14px; margin-bottom: 12px;">📎 첨부된 파일</div>
-                    </div>
-                    ''', unsafe_allow_html=True)
+                    files_parts = []
+                    files_parts.append('<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">')
+                    files_parts.append('<div style="font-weight: 600; color: #666; font-size: 14px; margin-bottom: 12px;">📎 첨부된 파일</div>')
                     
-                    # 각 파일을 카드 스타일로 표시
                     for file in post.get("files", []):
-                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
-                        
-                        # 파일 정보 표시
                         file_size_mb = file.get('size', 0) / (1024 * 1024)
                         file_type_icon = "🎵" if file["file_type"] == "audio" else "🎬" if file["file_type"] == "video" else "🖼️" if file["file_type"] == "image" else "📄"
                         
-                        st.markdown(f'''
-                        <div style="
-                            background: white;
+                        file_html = f'''<div style="
+                            background: #f8f9fa;
                             border: 1px solid #e1e8ed;
                             border-radius: 8px;
                             padding: 12px;
@@ -944,11 +907,41 @@ try:
                         ">
                             <span style="font-size: 20px; margin-right: 12px;">{file_type_icon}</span>
                             <div>
-                                <div style="font-weight: 500; font-size: 14px;">{file['original_name']}</div>
-                                <div style="color: #666; font-size: 12px;">{file_size_mb:.2f} MB</div>
+                                <div style="font-weight: 500; font-size: 14px;">{html.escape(file['original_name'])}</div>
+                                <div style="color: #666; font-size: 12px;">{file_size_mb:.2f} MB • {file["file_type"]}</div>
                             </div>
-                        </div>
-                        ''', unsafe_allow_html=True)
+                        </div>'''
+                        files_parts.append(file_html)
+                    
+                    files_parts.append('</div>')
+                    files_section = ''.join(files_parts)
+                
+                # 완전한 게시글 카드 HTML (댓글 + 첨부파일 포함)
+                st.markdown(f'''
+                <div style="
+                    background: white;
+                    border: 1px solid #e1e8ed;
+                    border-radius: 16px;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+                    padding: 24px;
+                    margin-bottom: 16px;
+                    width: 100%;
+                    box-sizing: border-box;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-weight: 600; color: #1da1f2; margin: 0;">{post["author"]}</span>
+                        <span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>
+                    </div>
+                    <div style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>
+                    {files_section}
+                    {comments_section}
+                </div>
+                ''', unsafe_allow_html=True)
+                
+                # Streamlit 컴포넌트 (플레이어, 이미지 등)만 박스 밖에 표시
+                if post.get("files", []):
+                    for file in post.get("files", []):
+                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
                         
                         try:
                             if file["file_type"] == "audio":
@@ -988,10 +981,6 @@ try:
                         
                         except Exception as e:
                             st.warning(f"파일 처리 오류: {file['original_name']} - {e}")
-                
-                else:
-                    # 파일이 없을 때는 기본 마진 추가
-                    st.markdown('<div style="margin-bottom: 16px;"></div>', unsafe_allow_html=True)
                 
                 # URL 미리보기 표시 (카드 밖)
                 if post.get("url_previews"):
