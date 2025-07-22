@@ -917,7 +917,7 @@ try:
                                         <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
                                     </div>
                                     ''', unsafe_allow_html=True)
-                                    thumb_clicked = st.form_submit_button("이미지 전체보기", key=thumb_btn_key)
+                                    thumb_clicked = st.form_submit_button("이미지 전체보기")
                                 if thumb_clicked:
                                     st.session_state[state_key] = not st.session_state[state_key]
                             elif file_type == "audio":
