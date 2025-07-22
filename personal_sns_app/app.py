@@ -6,6 +6,8 @@ import uuid
 from PIL import Image
 import io
 import hashlib
+from secure_auth import SecureAuth
+from session_manager import SessionManager
 
 # Supabase 연동
 USE_SUPABASE = False
@@ -151,7 +153,13 @@ def safe_save_json(path, data):
 def hash_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
+# 보안 인증 시스템 초기화
+secure_auth = SecureAuth(USERS_PATH, SESSION_PATH)
+session_manager = SessionManager(SESSION_PATH)
+
 # 세션 상태 초기화
+if 'session_id' not in st.session_state:
+    st.session_state.session_id = None
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'current_user' not in st.session_state:
@@ -159,13 +167,19 @@ if 'current_user' not in st.session_state:
 if 'password_changed' not in st.session_state:
     st.session_state.password_changed = False
 
-# 파일에서 로그인 상태 복원 (새로고침 시에도 유지)
-if not st.session_state.logged_in:
-    session_data = safe_load_json(SESSION_PATH, {})
-    if session_data.get("logged_in", False):
+# 세션 유효성 검증
+if st.session_state.session_id:
+    session_data = session_manager.validate_session(st.session_state.session_id)
+    if session_data:
         st.session_state.logged_in = True
         st.session_state.current_user = session_data.get("username")
         st.session_state.password_changed = session_data.get("password_changed", True)
+    else:
+        # 세션이 만료되었거나 유효하지 않음
+        st.session_state.session_id = None
+        st.session_state.logged_in = False
+        st.session_state.current_user = None
+        st.session_state.password_changed = False
 
 # 데이터 로드
 try:
@@ -237,22 +251,14 @@ try:
                 confirm_password = st.text_input("비밀번호 확인", type="password", key="signup_confirm")
                 signup_submitted = st.form_submit_button("회원가입")
                 if signup_submitted:
-                    if not new_username or not new_password:
-                        st.error("사용자명과 비밀번호를 모두 입력해주세요.")
-                    elif new_password != confirm_password:
+                    if new_password != confirm_password:
                         st.error("비밀번호가 일치하지 않습니다.")
-                    elif new_username in users:
-                        st.error("이미 존재하는 사용자명입니다.")
                     else:
-                        password_hash = hash_password(new_password)
-                        if USE_SUPABASE:
-                            if supabase_save_user(new_username, password_hash):
-                                users[new_username] = password_hash
-                                st.success("회원가입이 완료되었습니다! 로그인 탭에서 로그인해주세요.")
+                        success, message = secure_auth.register_user(new_username, new_password)
+                        if success:
+                            st.success(message)
                         else:
-                            users[new_username] = password_hash
-                            safe_save_json(USERS_PATH, users)
-                            st.success("회원가입이 완료되었습니다! 로그인 탭에서 로그인해주세요.")
+                            st.error(message)
         else:
             st.subheader("로그인")
             with st.form("login_form"):
@@ -260,31 +266,16 @@ try:
                 password = st.text_input("비밀번호", type="password", key="login_password")
                 login_submitted = st.form_submit_button("로그인")
                 if login_submitted:
-                    if not username or not password:
-                        st.error("사용자명과 비밀번호를 모두 입력해주세요.")
-                    elif username not in users:
-                        st.error("존재하지 않는 사용자명입니다.")
-                    elif users[username] != hash_password(password):
-                        st.error("비밀번호가 올바르지 않습니다.")
-                    else:
+                    success, session_id, message = secure_auth.login(username, password)
+                    if success:
+                        st.session_state.session_id = session_id
                         st.session_state.logged_in = True
                         st.session_state.current_user = username
-                        if username == "admin" and password == "admin123":
-                            st.session_state.password_changed = False
-                        else:
-                            st.session_state.password_changed = True
-                        
-                        # 세션 정보를 파일에 저장
-                        session_data = {
-                            "logged_in": True,
-                            "username": username,
-                            "password_changed": st.session_state.password_changed,
-                            "login_time": datetime.now().isoformat()
-                        }
-                        safe_save_json(SESSION_PATH, session_data)
-                        
-                        st.success("로그인 성공!")
+                        st.session_state.password_changed = not (username == "admin" and password == "admin123")
+                        st.success(message)
                         st.rerun()
+                    else:
+                        st.error(message)
     else:
         # 비밀번호 변경이 필요한 경우 (admin 계정이 기본 비밀번호로 로그인한 경우)
         if st.session_state.current_user == "admin" and not st.session_state.password_changed:
@@ -306,38 +297,15 @@ try:
                         st.error("새 비밀번호는 기존 비밀번호와 달라야 합니다.")
                     else:
                         new_password_hash = hash_password(new_password)
-                        if USE_SUPABASE:
-                            if supabase_update_user("admin", new_password_hash):
-                                users["admin"] = new_password_hash
-                                st.session_state.password_changed = True
-                                
-                                # 세션 정보 업데이트
-                                session_data = safe_load_json(SESSION_PATH, {})
-                                session_data["password_changed"] = True
-                                safe_save_json(SESSION_PATH, session_data)
-                                
-                                st.success("비밀번호가 성공적으로 변경되었습니다!")
-                                st.rerun()
-                        else:
-                            users["admin"] = new_password_hash
-                            safe_save_json(USERS_PATH, users)
+                        success, message = secure_auth.change_password("admin", current_password, new_password)
+                        if success:
                             st.session_state.password_changed = True
-                            
-                            # 세션 정보 업데이트
-                            session_data = safe_load_json(SESSION_PATH, {})
-                            session_data["password_changed"] = True
-                            safe_save_json(SESSION_PATH, session_data)
-                            
-                            st.success("비밀번호가 성공적으로 변경되었습니다!")
+                            st.success(message)
                             st.rerun()
+                        else:
+                            st.error(message)
             if st.button("나중에 변경"):
                 st.session_state.password_changed = True
-                
-                # 세션 정보 업데이트
-                session_data = safe_load_json(SESSION_PATH, {})
-                session_data["password_changed"] = True
-                safe_save_json(SESSION_PATH, session_data)
-                
                 st.rerun()
         else:
             st.markdown(f"**안녕하세요, {st.session_state.current_user}님!**")
@@ -347,9 +315,18 @@ try:
                 st.markdown("---")
                 st.subheader("🔧 관리자 기능")
                 
-                # 디버깅 정보
+                # 보안 정보
                 st.info(f"현재 로그인된 사용자: {st.session_state.current_user}")
                 st.info(f"Supabase 사용 여부: {USE_SUPABASE}")
+                st.info(f"활성 세션 수: {session_manager.get_active_sessions_count()}")
+                
+                # 로그인 시도 정보 (관리자용)
+                if st.session_state.current_user:
+                    login_info = secure_auth.get_login_attempts_info(st.session_state.current_user)
+                    if login_info['count'] > 0:
+                        st.warning(f"로그인 시도: {login_info['count']}회")
+                    if login_info['locked']:
+                        st.error(f"계정 잠금: {login_info['remaining_time']}분 남음")
                 
                 # 사용자 목록 표시 (매번 새로 로드)
                 if USE_SUPABASE:
@@ -405,13 +382,12 @@ try:
                 st.markdown("---")
             
             if st.button("로그아웃"):
+                if st.session_state.session_id:
+                    secure_auth.logout(st.session_state.session_id)
+                st.session_state.session_id = None
                 st.session_state.logged_in = False
                 st.session_state.current_user = None
                 st.session_state.password_changed = False
-                
-                # 세션 파일 초기화
-                safe_save_json(SESSION_PATH, {})
-                
                 st.rerun()
             with st.form("post_form", clear_on_submit=True):
                 content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
