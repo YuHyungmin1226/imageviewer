@@ -281,10 +281,6 @@ div[data-testid="stVerticalBlock"] > div[style*="border"] {
     background: transparent !important;
     padding: 0 !important;
 }
-.element-container:has(.post-card) {
-    border: none !important;
-    background: transparent !important;
-}
 /* 폼과 버튼 주변 테두리 제거 */
 .stForm {
     border: none !important;
@@ -293,34 +289,6 @@ div[data-testid="stVerticalBlock"] > div[style*="border"] {
 [data-testid="column"] {
     border: none !important;
     background: transparent !important;
-}
-.post-card {
-    background: #f5f6fa;
-    border: 2px solid #d1d9e0;
-    border-radius: 16px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
-    padding: 18px 20px 12px 20px;
-    margin-bottom: 24px;
-}
-.post-header {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    margin-bottom: 12px !important;
-    padding: 0 !important;
-    width: 100% !important;
-}
-.post-author {
-    font-weight: 600 !important;
-    color: #1da1f2 !important;
-    margin: 0 !important;
-    flex: 1 !important;
-}
-.post-time {
-    color: #aaa !important;
-    font-size: 13px !important;
-    margin: 0 !important;
-    text-align: right !important;
 }
 
 .stButton > button {
