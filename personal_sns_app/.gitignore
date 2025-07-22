@@ -44,9 +44,11 @@ venv.bak/
 instance/
 .webassets-cache
 
-# Uploads and data
+# Uploads and data (Streamlit Cloud에서는 읽기 전용)
 uploads/
 posts.json
+users.json
+session.json
 *.log
 
 # IDE
@@ -54,4 +56,11 @@ posts.json
 .idea/
 *.swp
 *.swo
-*~ 
+*~
+
+# Project specific
+*.db
+*.sqlite
+logs/
+temp/
+tmp/
