@@ -625,26 +625,26 @@ try:
             if "selected_other_files" not in st.session_state:
                 st.session_state.selected_other_files = []
             
-            with st.form("post_form", clear_on_submit=True):
-                content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500)
-                
-                # 첨부된 파일 목록 표시
-                all_files = st.session_state.selected_media_files + st.session_state.selected_other_files
-                if all_files:
-                    st.markdown("**📎 첨부된 파일:**")
-                    for file_info in all_files:
-                        file_size_mb = file_info['size'] / (1024 * 1024)
-                        file_type = "🎵" if file_info['type'] == "audio" else "🎬" if file_info['type'] == "video" else "🖼️" if file_info['type'] == "image" else "📄"
-                        st.write(f"{file_type} {file_info['name']} ({file_size_mb:.2f} MB)")
-                
-                # 3개 컬럼으로 버튼 배치
-                col1, col2, col3 = st.columns([1, 1, 1])
-                with col1:
-                    submitted = st.form_submit_button("📝 게시", use_container_width=True, type="primary")
-                with col2:
-                    media_btn = st.form_submit_button("🎬 사진/영상", use_container_width=True)
-                with col3:
-                    file_btn = st.form_submit_button("📁 파일", use_container_width=True)
+            # 게시물 내용 입력
+            content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500, key="post_content")
+            
+            # 첨부된 파일 목록 표시
+            all_files = st.session_state.selected_media_files + st.session_state.selected_other_files
+            if all_files:
+                st.markdown("**📎 첨부된 파일:**")
+                for file_info in all_files:
+                    file_size_mb = file_info['size'] / (1024 * 1024)
+                    file_type = "🎵" if file_info['type'] == "audio" else "🎬" if file_info['type'] == "video" else "🖼️" if file_info['type'] == "image" else "📄"
+                    st.write(f"{file_type} {file_info['name']} ({file_size_mb:.2f} MB)")
+            
+            # 3개 컬럼으로 버튼 배치 (폼 밖에서)
+            col1, col2, col3 = st.columns([1, 1, 1])
+            with col1:
+                submitted = st.button("📝 게시", use_container_width=True, type="primary")
+            with col2:
+                media_btn = st.button("🎬 사진/영상", use_container_width=True)
+            with col3:
+                file_btn = st.button("📁 파일", use_container_width=True)
             
             # 사진/영상 첨부 처리
             if media_btn:
@@ -657,6 +657,8 @@ try:
                 )
                 
                 if media_files:
+                    st.success(f"{len(media_files)}개 파일이 선택되었습니다!")
+                    new_files = []
                     for file in media_files:
                         file_type = "image" if file.type.startswith("image/") else "video"
                         file_info = {
@@ -665,18 +667,22 @@ try:
                             'type': file_type,
                             'file_obj': file
                         }
-                        if file_info not in st.session_state.selected_media_files:
-                            st.session_state.selected_media_files.append(file_info)
+                        # 중복 체크
+                        if not any(f['name'] == file.name for f in st.session_state.selected_media_files):
+                            new_files.append(file_info)
                     
-                    col_confirm, col_clear = st.columns([1, 1])
-                    with col_confirm:
-                        if st.button("✅ 첨부 완료", use_container_width=True, type="primary"):
-                            st.success("미디어 파일이 첨부되었습니다!")
-                            st.rerun()
-                    with col_clear:
-                        if st.button("🗑️ 초기화", use_container_width=True):
-                            st.session_state.selected_media_files = []
-                            st.rerun()
+                    if new_files:
+                        col_confirm, col_clear = st.columns([1, 1])
+                        with col_confirm:
+                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key="media_confirm"):
+                                st.session_state.selected_media_files.extend(new_files)
+                                st.success("미디어 파일이 첨부되었습니다!")
+                                st.rerun()
+                        with col_clear:
+                            if st.button("🗑️ 모두 초기화", use_container_width=True, key="media_clear"):
+                                st.session_state.selected_media_files = []
+                                st.success("미디어 파일이 초기화되었습니다!")
+                                st.rerun()
             
             # 기타 파일 첨부 처리
             if file_btn:
@@ -689,6 +695,8 @@ try:
                 )
                 
                 if other_files:
+                    st.success(f"{len(other_files)}개 파일이 선택되었습니다!")
+                    new_files = []
                     for file in other_files:
                         file_type = "audio" if file.type.startswith("audio/") or file.name.lower().endswith(('.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a')) else "document"
                         file_info = {
@@ -697,18 +705,22 @@ try:
                             'type': file_type,
                             'file_obj': file
                         }
-                        if file_info not in st.session_state.selected_other_files:
-                            st.session_state.selected_other_files.append(file_info)
+                        # 중복 체크
+                        if not any(f['name'] == file.name for f in st.session_state.selected_other_files):
+                            new_files.append(file_info)
                     
-                    col_confirm, col_clear = st.columns([1, 1])
-                    with col_confirm:
-                        if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key="file_confirm"):
-                            st.success("파일이 첨부되었습니다!")
-                            st.rerun()
-                    with col_clear:
-                        if st.button("🗑️ 초기화", use_container_width=True, key="file_clear"):
-                            st.session_state.selected_other_files = []
-                            st.rerun()
+                    if new_files:
+                        col_confirm, col_clear = st.columns([1, 1])
+                        with col_confirm:
+                            if st.button("✅ 첨부 완료", use_container_width=True, type="primary", key="file_confirm"):
+                                st.session_state.selected_other_files.extend(new_files)
+                                st.success("파일이 첨부되었습니다!")
+                                st.rerun()
+                        with col_clear:
+                            if st.button("🗑️ 모두 초기화", use_container_width=True, key="file_clear"):
+                                st.session_state.selected_other_files = []
+                                st.success("파일이 초기화되었습니다!")
+                                st.rerun()
             
             # 게시글과 기존 게시글 구분선
             st.markdown("""
