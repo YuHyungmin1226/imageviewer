@@ -460,7 +460,7 @@ try:
             st.markdown('<div style="margin-top:40px; margin-bottom:32px; text-align:left;"><span style="font-size:38px; font-weight:700; letter-spacing:-2px;">로그인</span></div>', unsafe_allow_html=True)
             auth_mode = st.radio(" ", ["로그인", "회원가입"], index=0, horizontal=True, label_visibility="collapsed")
             if auth_mode == "회원가입":
-                st.markdown('<div style="margin-bottom:18px; text-align:left;"><span style="font-size:22px; font-weight:600;">회원가입</span></div>', unsafe_allow_html=True)
+                # 회원가입 텍스트(섹션 타이틀) 제거
                 with st.form("signup_form"):
                     new_username = st.text_input("사용자명", key="signup_username")
                     new_password = st.text_input("비밀번호", type="password", key="signup_password")
