@@ -12,19 +12,7 @@ class Config:
     NEIS_API_KEY: str = os.getenv("NEIS_API_KEY", "c4ef97602ca54adc9e4cd49648b247f6")
     
     # 애플리케이션 설정
-    MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     MAX_POST_LENGTH: int = 500
-    UPLOAD_FOLDER: str = "uploads"
-    
-    # 지원하는 파일 타입
-    ALLOWED_IMAGE_TYPES = ["png", "jpg", "jpeg", "gif", "bmp", "webp"]
-    ALLOWED_VIDEO_TYPES = ["mp4", "avi", "mov", "wmv", "flv", "webm", "mkv"]
-    ALLOWED_AUDIO_TYPES = ["mp3", "wav", "flac", "aac", "ogg", "m4a"]
-    
-    @classmethod
-    def get_allowed_file_types(cls) -> list:
-        """모든 허용된 파일 타입 반환"""
-        return cls.ALLOWED_IMAGE_TYPES + cls.ALLOWED_VIDEO_TYPES + cls.ALLOWED_AUDIO_TYPES
     
     @classmethod
     def is_supabase_configured(cls) -> bool:
