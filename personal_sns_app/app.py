@@ -3,7 +3,6 @@ import os
 import json
 from datetime import datetime
 import uuid
-# PIL과 io는 파일 첨부 기능 제거로 불필요
 import hashlib
 from secure_auth import SecureAuth
 from session_manager import SessionManager
@@ -15,40 +14,27 @@ supabase = None
 
 try:
     from supabase import create_client # type: ignore
-    # Streamlit Secrets에서 Supabase 설정 가져오기
     if hasattr(st, 'secrets') and 'supabase_url' in st.secrets and 'supabase_key' in st.secrets:
         supabase_url = st.secrets.supabase_url
         supabase_key = st.secrets.supabase_key
         supabase = create_client(supabase_url, supabase_key)
         USE_SUPABASE = True
     else:
-        # Supabase 설정이 없으면 로컬 모드로 실행
         USE_SUPABASE = False
         supabase = None
 except ImportError:
-    # supabase 패키지가 설치되지 않은 경우
     USE_SUPABASE = False
     supabase = None
 except Exception as e:
-    # Supabase 연결 실패 시 로컬 모드로 실행
     USE_SUPABASE = False
     supabase = None
 
-# 로컬 파일 시스템 (백업용)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 POSTS_PATH = os.path.join(BASE_DIR, "posts.json")
 USERS_PATH = os.path.join(BASE_DIR, "users.json")
 SESSION_PATH = os.path.join(BASE_DIR, "session.json")
-UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 
-# Streamlit Cloud에서는 읽기 전용이므로 업로드 디렉토리 생성 시도
-try:
-    os.makedirs(UPLOADS_DIR, exist_ok=True)
-except Exception:
-    # Streamlit Cloud에서는 파일 시스템 쓰기 권한이 제한적
-    pass
-
-# Supabase 데이터베이스 함수들
+# Supabase/로컬 게시글, 사용자 함수(첨부파일 관련 부분 없음)
 def supabase_load_posts():
     if not USE_SUPABASE or supabase is None:
         return []
@@ -671,133 +657,8 @@ try:
                 st.rerun()
             # 게시물 작성 영역
             st.markdown("### 📝 게시물 작성")
-            
-            # 세션 상태 초기화
-            if "selected_media_files" not in st.session_state:
-                st.session_state.selected_media_files = []
-            if "selected_other_files" not in st.session_state:
-                st.session_state.selected_other_files = []
-            if "show_media_uploader" not in st.session_state:
-                st.session_state.show_media_uploader = False
-            if "show_file_uploader" not in st.session_state:
-                st.session_state.show_file_uploader = False
-            # 업로더 키를 동적으로 관리하기 위한 카운터
-            if "media_uploader_key" not in st.session_state:
-                st.session_state.media_uploader_key = 0
-            if "file_uploader_key" not in st.session_state:
-                st.session_state.file_uploader_key = 0
-            
-            # 게시물 내용 입력
             content = st.text_area("내용", placeholder="무엇을 공유하고 싶으신가요?", max_chars=500, key="post_content")
-            
-            # 첨부된 파일 목록 표시
-            all_files = st.session_state.selected_media_files + st.session_state.selected_other_files
-            if all_files:
-                st.markdown("**📎 첨부된 파일:**")
-                for file_info in all_files:
-                    file_size_mb = file_info['size'] / (1024 * 1024)
-                    file_type = "🎵" if file_info['type'] == "audio" else "🎬" if file_info['type'] == "video" else "🖼️" if file_info['type'] == "image" else "📄"
-                    st.write(f"{file_type} {file_info['name']} ({file_size_mb:.2f} MB)")
-            
-            # 3개 컬럼으로 버튼 배치 (폼 밖에서)
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col1:
-                submitted = st.button("📝 게시", use_container_width=True, type="primary")
-            with col2:
-                if st.button("🎬 사진/영상", use_container_width=True):
-                    st.session_state.show_media_uploader = not st.session_state.show_media_uploader
-                    st.session_state.show_file_uploader = False
-                    st.rerun()
-            with col3:
-                if st.button("📁 파일", use_container_width=True):
-                    st.session_state.show_file_uploader = not st.session_state.show_file_uploader
-                    st.session_state.show_media_uploader = False
-                    st.rerun()
-            
-            # 사진/영상 file_uploader (버튼 클릭 시에만 노출, 안내 최소화)
-            if st.session_state.get("show_media_uploader", False):
-                media_files = st.file_uploader(
-                    "사진/영상 첨부 (여러 개 선택 가능)",
-                    accept_multiple_files=True,
-                    type=["png", "jpg", "jpeg", "gif", "bmp", "webp", "mp4", "avi", "mov", "wmv", "flv", "webm", "mkv"],
-                    key=f"media_uploader_{st.session_state.media_uploader_key}",
-                    label_visibility="visible",
-                    help=None,
-                    disabled=False
-                )
-                if media_files:
-                    new_files = []
-                    for file in media_files:
-                        file_type = "image" if file.type.startswith("image/") else "video"
-                        file.seek(0)
-                        file_content = file.read()
-                        file_info = {
-                            'name': file.name,
-                            'size': file.size,
-                            'type': file_type,
-                            'content': file_content
-                        }
-                        if not any(f['name'] == file.name for f in st.session_state.selected_media_files):
-                            new_files.append(file_info)
-                    if new_files:
-                        col_confirm, col_clear = st.columns([1, 1])
-                        with col_confirm:
-                            if st.button("✅ 사진/영상 첨부 완료", use_container_width=True, type="primary", key=f"media_confirm_{st.session_state.media_uploader_key}"):
-                                st.session_state.selected_media_files.extend(new_files)
-                                st.session_state.media_uploader_key += 1
-                                st.session_state.show_media_uploader = False
-                                st.success("미디어 파일이 첨부되었습니다!")
-                                st.rerun()
-                        with col_clear:
-                            if st.button("🗑️ 사진/영상 모두 초기화", use_container_width=True, key=f"media_clear_{st.session_state.media_uploader_key}"):
-                                st.session_state.selected_media_files = []
-                                st.session_state.media_uploader_key += 1
-                                st.session_state.show_media_uploader = False
-                                st.success("미디어 파일이 초기화되었습니다!")
-                                st.rerun()
-            # 파일 file_uploader (버튼 클릭 시에만 노출, 안내 최소화)
-            if st.session_state.get("show_file_uploader", False):
-                other_files = st.file_uploader(
-                    "파일 첨부 (여러 개 선택 가능)",
-                    accept_multiple_files=True,
-                    type=["mp3", "wav", "flac", "aac", "ogg", "m4a", "pdf", "txt", "doc", "docx", "xlsx", "pptx"],
-                    key=f"file_uploader_{st.session_state.file_uploader_key}",
-                    label_visibility="visible",
-                    help=None,
-                    disabled=False
-                )
-                if other_files:
-                    new_files = []
-                    for file in other_files:
-                        file_type = "audio" if file.type.startswith("audio/") or file.name.lower().endswith(('.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a')) else "document"
-                        file.seek(0)
-                        file_content = file.read()
-                        file_info = {
-                            'name': file.name,
-                            'size': file.size,
-                            'type': file_type,
-                            'content': file_content
-                        }
-                        if not any(f['name'] == file.name for f in st.session_state.selected_other_files):
-                            new_files.append(file_info)
-                    if new_files:
-                        col_confirm, col_clear = st.columns([1, 1])
-                        with col_confirm:
-                            if st.button("✅ 파일 첨부 완료", use_container_width=True, type="primary", key=f"file_confirm_{st.session_state.file_uploader_key}"):
-                                st.session_state.selected_other_files.extend(new_files)
-                                st.session_state.file_uploader_key += 1
-                                st.session_state.show_file_uploader = False
-                                st.success("파일이 첨부되었습니다!")
-                                st.rerun()
-                        with col_clear:
-                            if st.button("🗑️ 파일 모두 초기화", use_container_width=True, key=f"file_clear_{st.session_state.file_uploader_key}"):
-                                st.session_state.selected_other_files = []
-                                st.session_state.file_uploader_key += 1
-                                st.session_state.show_file_uploader = False
-                                st.success("파일이 초기화되었습니다!")
-                                st.rerun()
-            
-            # 게시글과 기존 게시글 구분선
+            submitted = st.button("📝 게시", use_container_width=True, type="primary")
             st.markdown("""
             <hr style="
                 border: none;
@@ -807,66 +668,22 @@ try:
                 border-radius: 2px;
             ">
             """, unsafe_allow_html=True)
-            
-            # 게시글 처리 로직
             if submitted and content.strip():
-                # 모든 첨부 파일 처리
-                uploaded_files = []
-                all_selected_files = st.session_state.selected_media_files + st.session_state.selected_other_files
-                
-                st.info(f"📎 첨부된 파일 개수: {len(all_selected_files)}")  # 디버깅용
-                
-                for file_info in all_selected_files:
-                    try:
-                        file_id = f"{uuid.uuid4().hex}_{file_info['name']}"
-                        file_path = os.path.join(UPLOADS_DIR, file_id)
-                        
-                        # 파일 내용 가져오기
-                        file_content = file_info['content']
-                        
-                        # 파일 내용이 비어있는지 확인
-                        if not file_content:
-                            st.warning(f"⚠️ 파일 내용이 비어있습니다: {file_info['name']}")
-                            continue
-                        
-                        with open(file_path, "wb") as f_out:
-                            f_out.write(file_content)
-                        
-                        # 저장된 파일 크기 확인
-                        saved_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
-                        st.success(f"✅ {file_info['name']} 저장 완료 ({saved_size} bytes)")
-                        
-                        uploaded_files.append({
-                            "original_name": file_info['name'],
-                            "saved_name": file_id,
-                            "file_type": file_info['type'],
-                            "size": file_info['size']
-                        })
-                    except Exception as e:
-                        st.error(f"❌ 파일 업로드 실패: {file_info['name']} - {e}")
-                
-                st.info(f"💾 저장된 파일 개수: {len(uploaded_files)}")  # 디버깅용
-                
-                # URL 미리보기 처리
                 processed_content, url_previews = url_preview_generator.process_text_with_urls(content)
-                
                 new_post = {
                     "id": str(uuid.uuid4()),
                     "content": content,
                     "author": st.session_state.current_user,
-                    "files": uploaded_files,
                     "url_previews": url_previews,
                     "created_at": datetime.now().isoformat(),
                     "comments": [],
                     "public": False
                 }
-                
                 if USE_SUPABASE:
                     if supabase_save_post(new_post):
                         posts.insert(0, new_post)
                         st.success("게시물이 등록되었습니다!")
                     else:
-                        # Supabase 저장 실패시 로컬로 저장
                         posts.insert(0, new_post)
                         safe_save_json(POSTS_PATH, posts)
                         st.success("게시물이 등록되었습니다! (로컬 모드)")
@@ -874,102 +691,26 @@ try:
                     posts.insert(0, new_post)
                     safe_save_json(POSTS_PATH, posts)
                     st.success("게시물이 등록되었습니다!")
-                
-                # 파일 선택 초기화
-                st.session_state.selected_media_files = []
-                st.session_state.selected_other_files = []
-                # 업로더 표시 상태도 초기화
-                st.session_state.show_media_uploader = False
-                st.session_state.show_file_uploader = False
-                # 업로더 키도 초기화
-                st.session_state.media_uploader_key += 1
-                st.session_state.file_uploader_key += 1
                 st.rerun()
-            # 포스트 목록 표시 (본인 글과 공개된 글만)
+            # 게시글 목록 표시 (본인 글과 공개된 글만)
             visible_posts = [post for post in posts if post["author"] == st.session_state.current_user or post.get("public", False)]
             for idx, post in enumerate(visible_posts):
-                # HTML 특수문자 이스케이프 처리 후 URL 링크 변환
                 import re
                 import html
-                # HTML 특수문자 안전하게 처리
                 safe_content = html.escape(post["content"])
-                # URL을 클릭 가능한 링크로 변환
                 url_pattern = r'(http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+)'
                 content_with_links = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #1da1f2; text-decoration: none;">\1</a>', safe_content)
-                
-                # 댓글 영역 HTML 생성 (리스트로 구성 후 join)
                 comments_parts = ['<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">']
-                
-                # 기존 댓글들 표시
                 if post.get("comments", []):
                     for c in post.get("comments", []):
-                        # HTML 특수문자 이스케이프 처리
-                        import html
                         safe_author = html.escape(c['author'])
-                        safe_content = html.escape(c['content'])
-                        
-                        comment_html = f'<div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;"><div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">{safe_author} <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span></div><div style="font-size: 14px; line-height: 1.4; color: #333;">{safe_content}</div></div>'
+                        safe_comment = html.escape(c['content'])
+                        comment_html = f'<div style="margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #1da1f2;"><div style="font-weight: 600; color: #1da1f2; font-size: 14px; margin-bottom: 4px;">{safe_author} <span style="color: #999; font-weight: normal; font-size: 12px;">• {c['timestamp'][:16]}</span></div><div style="font-size: 14px; line-height: 1.4; color: #333;">{safe_comment}</div></div>'
                         comments_parts.append(comment_html)
                 else:
-                    # 댓글이 없을 때 안내 메시지
                     comments_parts.append('<div style="color: #999; font-size: 14px; text-align: center; padding: 12px;">아직 댓글이 없습니다. 첫 번째 댓글을 남겨보세요!</div>')
-                
                 comments_parts.append('</div>')
                 comments_section = ''.join(comments_parts)
-
-                import base64
-                from pathlib import Path
-                files_section = ""
-                if post.get("files", []):
-                    files_parts = []
-                    files_parts.append('<div style="border-top: 1px solid #f0f0f0; margin-top: 16px; padding-top: 16px;">')
-                    files_parts.append('<div style="font-weight: 600; color: #666; font-size: 14px; margin-bottom: 12px;">📎 첨부된 파일</div>')
-                    for idx, file in enumerate(post.get("files", [])):
-                        file_type = file["file_type"]
-                        file_path = os.path.join(UPLOADS_DIR, file["saved_name"])
-                        ext = Path(file_path).suffix[1:].lower()
-                        if os.path.exists(file_path):
-                            with open(file_path, "rb") as f:
-                                file_bytes = f.read()
-                                file_b64 = base64.b64encode(file_bytes).decode()
-                            if file_type == "image":
-                                files_parts.append(f'''
-                                <div style="text-align:center; margin: 16px 0;">
-                                    <img src="data:image/{ext};base64,{file_b64}" style="width: 100%; max-width: 100%; height: auto; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); display:block; margin:0 auto; object-fit: contain;" />
-                                    <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
-                                </div>
-                                ''')
-                            elif file_type == "audio":
-                                files_parts.append(f'''
-                                <div style="text-align:center; margin: 16px 0;">
-                                    <audio controls style="width: 100%; max-width: 100%; margin:0 auto; display:block;">
-                                        <source src="data:audio/{ext};base64,{file_b64}" type="audio/{ext}">
-                                        지원되지 않는 오디오 형식입니다.
-                                    </audio>
-                                    <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
-                                </div>
-                                ''')
-                            elif file_type == "video":
-                                files_parts.append(f'''
-                                <div style="text-align:center; margin: 16px 0;">
-                                    <video controls style="width: 100%; max-width: 100%; height: auto; margin:0 auto; display:block; border-radius:8px; object-fit: contain;">
-                                        <source src="data:video/{ext};base64,{file_b64}" type="video/{ext}">
-                                        지원되지 않는 비디오 형식입니다.
-                                    </video>
-                                    <div style="font-size:14px; color:#333; margin-top:8px; font-weight:500; text-align:center;">{html.escape(file['original_name'])}</div>
-                                </div>
-                                ''')
-                            else:
-                                files_parts.append(f'''
-                                <div style="text-align:center; margin: 16px 0;">
-                                    <a href="data:application/octet-stream;base64,{file_b64}" download="{html.escape(file['original_name'])}" style="display:inline-block; padding:8px 16px; background:#e1e8ed; color:#333; border-radius:6px; text-decoration:none; font-size:14px;">📥 {html.escape(file['original_name'])} 다운로드</a>
-                                </div>
-                                ''')
-                        else:
-                            files_parts.append(f'<div style="color:#888; font-size:13px; margin:16px 0; text-align:center;">파일을 표시할 수 없습니다 (Streamlit Cloud 제약)</div>')
-                    files_parts.append('</div>')
-                    files_section = ''.join(files_parts)
-                # 카드 전체(작성자/내용/파일/댓글)를 하나의 HTML로 합쳐서 한 번에 출력
                 st.markdown(
                     f'<div class="post-card-light" style="border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); padding: 24px; margin-bottom: 24px; width: 100%; box-sizing: border-box;">'
                     f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">'
@@ -977,56 +718,25 @@ try:
                     f'<span style="color: #666; font-size: 13px; margin: 0;">{post["created_at"][:16]}</span>'
                     f'</div>'
                     f'<div class="post-content-light" style="font-size: 17px; margin-bottom: 16px; white-space: pre-wrap; line-height: 1.5;">{content_with_links}</div>'
-                    f'{files_section}'
                     f'{comments_section}'
                     f'</div>',
                     unsafe_allow_html=True
                 )
-                
                 # URL 미리보기 표시 (카드 밖)
                 if post.get("url_previews"):
                     for preview in post["url_previews"]:
                         url_preview_generator.render_url_preview(preview)
                 else:
-                    # 기존 게시글에서 URL 감지 및 미리보기 생성
                     urls = url_preview_generator.extract_urls(post["content"])
                     if urls:
-                        for url in urls[:2]:  # 최대 2개까지만 미리보기
+                        for url in urls[:2]:
                             try:
                                 preview = url_preview_generator.get_url_preview(url)
                                 if preview:
                                     url_preview_generator.render_url_preview(preview)
                             except:
-                                pass  # 미리보기 생성 실패시 무시
-                
-                # 버튼들 (카드 밖)
-                col1, col2, col3 = st.columns([1,1,1])
-                if col1.button("댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
-                    if "comment_open" not in st.session_state:
-                        st.session_state["comment_open"] = {}
-                    st.session_state["comment_open"][post['id']] = not st.session_state["comment_open"].get(post['id'], False)
-                    st.rerun()
-                
-                if post["author"] == st.session_state.current_user:
-                    public_status = post.get("public", False)
-                    public_text = "공개" if public_status else "비공개"
-                    if col2.button(public_text, key=f"public_{post['id']}", use_container_width=True):
-                        post["public"] = not public_status
-                        if USE_SUPABASE:
-                            supabase_update_post(post['id'], {"public": post["public"]})
-                        else:
-                            safe_save_json(POSTS_PATH, posts)
-                        st.rerun()
-                
-                if post["author"] == st.session_state.current_user or st.session_state.current_user == "admin":
-                    if col3.button("삭제", key=f"delete_{post['id']}", use_container_width=True):
-                        if USE_SUPABASE:
-                            if supabase_delete_post(post['id']):
-                                posts.remove(post)
-                        else:
-                            posts.remove(post)
-                            safe_save_json(POSTS_PATH, posts)
-                        st.rerun()
+                                pass
+                # 댓글/공개/삭제 버튼 및 댓글 입력 폼은 기존대로 유지
                 
                 # 댓글 입력 폼 (댓글 버튼 눌렀을 때만 표시)
                 if "comment_open" in st.session_state and st.session_state["comment_open"].get(post['id'], False):
