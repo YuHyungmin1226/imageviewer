@@ -736,8 +736,35 @@ try:
                                     url_preview_generator.render_url_preview(preview)
                             except:
                                 pass
-                # 댓글/공개/삭제 버튼 및 댓글 입력 폼은 기존대로 유지
-                
+                # --- 댓글/공개/삭제 버튼 UI 복구 ---
+                col1, col2, col3 = st.columns([1, 1, 1])
+                # 댓글 버튼: 누르면 댓글 입력 폼 토글
+                if col1.button("💬 댓글", key=f"comment_toggle_{post['id']}", use_container_width=True):
+                    if "comment_open" not in st.session_state:
+                        st.session_state["comment_open"] = {}
+                    st.session_state["comment_open"][post['id']] = not st.session_state["comment_open"].get(post['id'], False)
+                    st.rerun()
+                # 공개/비공개 토글: 본인 글만
+                if post["author"] == st.session_state.current_user:
+                    public_status = post.get("public", False)
+                    public_text = "공개" if public_status else "비공개"
+                    if col2.button(public_text, key=f"public_{post['id']}", use_container_width=True):
+                        post["public"] = not public_status
+                        if USE_SUPABASE:
+                            supabase_update_post(post['id'], {"public": post["public"]})
+                        else:
+                            safe_save_json(POSTS_PATH, posts)
+                        st.rerun()
+                # 삭제 버튼: 본인 글 또는 관리자
+                if post["author"] == st.session_state.current_user or st.session_state.current_user == "admin":
+                    if col3.button("삭제", key=f"delete_{post['id']}", use_container_width=True):
+                        if USE_SUPABASE:
+                            if supabase_delete_post(post['id']):
+                                posts.remove(post)
+                        else:
+                            posts.remove(post)
+                            safe_save_json(POSTS_PATH, posts)
+                        st.rerun()
                 # 댓글 입력 폼 (댓글 버튼 눌렀을 때만 표시)
                 if "comment_open" in st.session_state and st.session_state["comment_open"].get(post['id'], False):
                     st.markdown("**💬 댓글 작성**")
@@ -750,7 +777,6 @@ try:
                             if st.form_submit_button("취소", use_container_width=True):
                                 st.session_state["comment_open"][post['id']] = False
                                 st.rerun()
-                        
                         if comment_submit and comment_text.strip():
                             post.setdefault("comments", []).append({
                                 "author": st.session_state.current_user,
@@ -761,8 +787,6 @@ try:
                                 supabase_update_post(post['id'], {"comments": post["comments"]})
                             else:
                                 safe_save_json(POSTS_PATH, posts)
-                            
-                            # 댓글 입력창 닫기
                             st.session_state["comment_open"][post['id']] = False
                             st.success("댓글이 등록되었습니다!")
                             st.rerun()
