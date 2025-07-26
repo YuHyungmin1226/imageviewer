@@ -24,12 +24,20 @@
 
 ### Flask SNS 앱 실행
 ```bash
+# 방법 1: 실행 스크립트 사용 (권장)
+./run_flask_sns.sh
+
+# 방법 2: 직접 실행
 cd flask_sns_repo
 python3 run.py
 ```
 
 ### 웹 시간표 앱 실행
 ```bash
+# 방법 1: 실행 스크립트 사용 (권장)
+./run_web_timetable.sh
+
+# 방법 2: 직접 실행
 cd web_timetable_repo
 streamlit run streamlit_timetable.py
 ```
@@ -44,7 +52,9 @@ HMYU/
 ├── web_timetable_repo/      # 웹 시간표 애플리케이션 (독립 저장소)
 ├── .venv/                   # Python 가상환경
 ├── .devcontainer/           # VS Code Dev Container 설정
-├── run.sh                   # 실행 스크립트
+├── run_flask_sns.sh         # Flask SNS 앱 실행 스크립트
+├── run_web_timetable.sh     # 웹 시간표 앱 실행 스크립트
+├── run.sh                   # 기존 실행 스크립트
 ├── README.md                # 이 파일
 └── .gitignore              # Git 제외 파일 설정
 ```
