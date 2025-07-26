@@ -5,7 +5,7 @@ echo ========================================
 echo.
 
 echo Docker 컨테이너를 중지하고 정리합니다...
-docker-compose down
+cd docker && docker-compose down
 
 echo Docker 이미지를 삭제합니다...
 docker rmi flask-sns-app 2>nul

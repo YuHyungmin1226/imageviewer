@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import os
 import uuid
 import json
-from url_utils import URLPreviewGenerator
-from file_utils import save_file, validate_file, get_file_info_from_json, delete_file, get_file_size_display
+from utils.url_utils import URLPreviewGenerator
+from utils.file_utils import save_file, validate_file, get_file_info_from_json, delete_file, get_file_size_display
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-change-this')

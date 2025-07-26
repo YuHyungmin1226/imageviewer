@@ -27,7 +27,7 @@ echo Docker 이미지를 빌드하고 애플리케이션을 시작합니다...
 echo.
 
 REM 기존 컨테이너가 있다면 중지
-docker-compose down
+cd docker && docker-compose down
 
 REM 이미지 빌드 및 컨테이너 시작
 docker-compose up --build

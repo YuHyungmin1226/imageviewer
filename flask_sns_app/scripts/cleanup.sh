@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${YELLOW}Docker 컨테이너를 중지하고 정리합니다...${NC}"
-docker-compose down
+cd docker && docker-compose down
 
 echo -e "${YELLOW}Docker 이미지를 삭제합니다...${NC}"
 docker rmi flask-sns-app 2>/dev/null || true

@@ -31,7 +31,7 @@ echo
 
 # 기존 컨테이너가 있다면 중지
 echo -e "${YELLOW}기존 컨테이너를 중지합니다...${NC}"
-docker-compose down
+cd docker && docker-compose down
 
 # 이미지 빌드 및 컨테이너 시작
 echo -e "${YELLOW}이미지를 빌드하고 컨테이너를 시작합니다...${NC}"
