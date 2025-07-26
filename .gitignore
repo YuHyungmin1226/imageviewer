@@ -64,3 +64,7 @@ session.json
 logs/
 temp/
 tmp/
+
+# Independent repositories
+flask_sns_repo/
+web_timetable_repo/
