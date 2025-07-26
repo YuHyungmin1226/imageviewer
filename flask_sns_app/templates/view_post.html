@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.author.username }}의 게시글 - 개인 SNS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- 게시글 -->
+        <div class="card mb-4 shadow">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-0">
+                        <i class="bi bi-person-circle"></i> {{ post.author.username }}
+                    </h6>
+                    <small class="text-muted">
+                        <i class="bi bi-clock"></i> {{ post.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </small>
+                </div>
+                <div>
+                    {% if not post.is_public %}
+                        <span class="badge bg-warning">
+                            <i class="bi bi-lock"></i> 비공개
+                        </span>
+                    {% endif %}
+                    {% if current_user.id == post.author_id %}
+                        <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" 
+                              style="display: inline;" 
+                              onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="post-content">{{ post.content }}</div>
+                
+                <!-- 파일 첨부 -->
+                {% if files %}
+                    <div class="attached-files mt-4">
+                        <h5><i class="bi bi-paperclip"></i> 첨부파일 ({{ files|length }}개)</h5>
+                        <div class="row">
+                            {% for file in files %}
+                            <div class="col-12 mb-3">
+                                <div class="file-item border rounded p-3">
+                                    <div class="d-flex align-items-start">
+                                        <i class="bi {{ 'bi-image' if file.file_type == 'image' else 'bi-file-text' if file.file_type == 'document' else 'bi-camera-video' if file.file_type == 'video' else 'bi-music-note' if file.file_type == 'audio' else 'bi-archive' if file.file_type == 'archive' else 'bi-file-earmark' }} me-2 fs-4"></i>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-bold">
+                                                {% if file.file_type == 'image' %}
+                                                    이미지 파일
+                                                {% elif file.file_type == 'video' %}
+                                                    비디오 파일
+                                                {% elif file.file_type == 'audio' %}
+                                                    오디오 파일
+                                                {% elif file.file_type == 'document' %}
+                                                    문서 파일
+                                                {% elif file.file_type == 'archive' %}
+                                                    압축 파일
+                                                {% else %}
+                                                    첨부 파일
+                                                {% endif %}
+                                            </div>
+                                            <small class="text-muted">
+                                                {% if file.file_size < 1024 %}
+                                                    {{ file.file_size }} B
+                                                {% elif file.file_size < 1024 * 1024 %}
+                                                    {{ (file.file_size / 1024)|round(1) }} KB
+                                                {% else %}
+                                                    {{ (file.file_size / 1024 / 1024)|round(1) }} MB
+                                                {% endif %}
+                                            </small>
+                                            <div class="mt-2">
+                                                <a href="{{ url_for('download_file', filename=file.saved_name) }}" class="btn btn-sm btn-primary me-2">
+                                                    <i class="bi bi-download"></i> 다운로드
+                                                </a>
+                                                {% if current_user.id == post.author_id %}
+                                                <form method="POST" action="{{ url_for('delete_post_file', post_id=post.id, filename=file.saved_name) }}" style="display: inline;" onsubmit="return confirm('정말 이 파일을 삭제하시겠습니까?')">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="bi bi-trash"></i> 삭제
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 이미지 미리보기 -->
+                                    {% if file.file_type == 'image' %}
+                                    <div class="mt-3">
+                                        <img src="{{ url_for('download_file', filename=file.saved_name) }}" 
+                                             class="img-fluid rounded" 
+                                             alt="{{ file.original_name }}"
+                                             style="cursor: pointer;"
+                                             onclick="openImageModal('{{ url_for('download_file', filename=file.saved_name) }}', '{{ file.original_name }}')"
+                                             onerror="console.log('이미지 로드 실패:', this.src);">
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- 비디오 재생 -->
+                                    {% if file.file_type == 'video' %}
+                                    <div class="mt-3">
+                                        <video controls class="w-100 rounded" style="width: 100%; max-height: 400px; object-fit: contain;">
+                                            <source src="{{ url_for('download_file', filename=file.saved_name) }}" type="{{ file.mime_type }}">
+                                            브라우저가 비디오 재생을 지원하지 않습니다.
+                                        </video>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <!-- 오디오 재생 -->
+                                    {% if file.file_type == 'audio' %}
+                                    <div class="mt-3">
+                                        <audio controls class="w-100">
+                                            <source src="{{ url_for('download_file', filename=file.saved_name) }}" type="{{ file.mime_type }}">
+                                            브라우저가 오디오 재생을 지원하지 않습니다.
+                                        </audio>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- URL 미리보기 -->
+                {% if url_previews %}
+                    {% for preview in url_previews %}
+                        {% if preview.type == 'youtube' %}
+                            <div class="youtube-preview">
+                                <img src="{{ preview.thumbnail_url }}" alt="{{ preview.title }}">
+                                <button class="play-button" onclick="window.open('{{ preview.url }}', '_blank')">
+                                    <i class="bi bi-play-fill"></i>
+                                </button>
+                                <div class="mt-2">
+                                    <h6>{{ preview.title }}</h6>
+                                    <small class="text-muted">{{ preview.author_name }}</small>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="url-preview">
+                                <div class="row">
+                                    {% if preview.image_url %}
+                                    <div class="col-md-3">
+                                        <img src="{{ preview.image_url }}" class="img-fluid rounded" alt="{{ preview.title }}">
+                                    </div>
+                                    <div class="col-md-9">
+                                    {% else %}
+                                    <div class="col-12">
+                                    {% endif %}
+                                        <h6><a href="{{ preview.url }}" target="_blank">{{ preview.title }}</a></h6>
+                                        {% if preview.description %}
+                                            <p class="text-muted small">{{ preview.description }}</p>
+                                        {% endif %}
+                                        <small class="text-muted">{{ preview.site_name }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 댓글 섹션 -->
+        <div class="comment-section">
+            <h5><i class="bi bi-chat"></i> 댓글 ({{ post.comments|length }}개)</h5>
+            
+            <!-- 댓글 작성 폼 -->
+            {% if current_user.is_authenticated %}
+                <form method="POST" action="{{ url_for('add_comment', post_id=post.id) }}" class="mb-4">
+                    <div class="mb-3">
+                        <textarea class="form-control" name="content" rows="3" 
+                                  placeholder="댓글을 작성해주세요..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-send"></i> 댓글 작성
+                    </button>
+                </form>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 댓글을 작성하려면 <a href="{{ url_for('login') }}">로그인</a>이 필요합니다.
+                </div>
+            {% endif %}
+
+            <!-- 댓글 목록 -->
+            {% if post.comments %}
+                {% for comment in post.comments %}
+                <div class="comment">
+                    <div class="comment-author">{{ comment.author.username }}</div>
+                    <div class="comment-content">{{ comment.content }}</div>
+                    <div class="comment-time">{{ comment.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center text-muted py-3">
+                    <i class="bi bi-chat-dots"></i> 아직 댓글이 없습니다.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 뒤로가기 버튼 -->
+        <div class="text-center mt-4">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> 목록으로 돌아가기
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 이미지 모달 -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">이미지 미리보기</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" class="img-fluid" alt="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                <a id="downloadLink" href="" class="btn btn-primary" download>
+                    <i class="bi bi-download"></i> 다운로드
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// URL 미리보기 클릭 이벤트
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.url-preview a').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.open(this.href, '_blank');
+        });
+    });
+});
+
+// 이미지 모달 열기 함수
+function openImageModal(imageSrc, imageName) {
+    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+    const modalImage = document.getElementById('modalImage');
+    const downloadLink = document.getElementById('downloadLink');
+    const modalTitle = document.getElementById('imageModalLabel');
+    
+    modalImage.src = imageSrc;
+    modalImage.alt = imageName;
+    downloadLink.href = imageSrc;
+    downloadLink.download = imageName;
+    modalTitle.textContent = imageName;
+    
+    modal.show();
+}
+
+// 비디오/오디오 컨트롤 최적화
+document.addEventListener('DOMContentLoaded', function() {
+    // 비디오 컨트롤
+    document.querySelectorAll('video').forEach(function(video) {
+        video.addEventListener('loadedmetadata', function() {
+            // 비디오 로드 완료 시 컨트롤 표시
+            video.controls = true;
+        });
+    });
+    
+    // 오디오 컨트롤
+    document.querySelectorAll('audio').forEach(function(audio) {
+        audio.addEventListener('loadedmetadata', function() {
+            // 오디오 로드 완료 시 컨트롤 표시
+            audio.controls = true;
+        });
+    });
+});
+</script>
+{% endblock %} 

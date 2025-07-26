@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}관리자 패널 - 개인 SNS{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-gear"></i> 관리자 패널
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- 통계 -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center">
+                                <h3>{{ users|length }}</h3>
+                                <p class="mb-0">전체 사용자</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h3>{{ posts|length }}</h3>
+                                <p class="mb-0">전체 게시글</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h3>{{ posts|selectattr('is_public', 'equalto', true)|list|length }}</h3>
+                                <p class="mb-0">공개 게시글</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h3>{{ posts|selectattr('is_public', 'equalto', false)|list|length }}</h3>
+                                <p class="mb-0">비공개 게시글</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 사용자 관리 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-people"></i> 사용자 관리
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>사용자명</th>
+                                        <th>가입일</th>
+                                        <th>마지막 로그인</th>
+                                        <th>게시글 수</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                    <tr>
+                                        <td>{{ user.id }}</td>
+                                        <td>
+                                            {{ user.username }}
+                                            {% if user.username == 'admin' %}
+                                                <span class="badge bg-danger">관리자</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>
+                                            {% if user.last_login %}
+                                                {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                            {% else %}
+                                                <span class="text-muted">로그인 기록 없음</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ user.posts|length }}개</td>
+                                        <td>
+                                            {% if user.username != 'admin' %}
+                                                <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}" 
+                                                      style="display: inline;" 
+                                                      onsubmit="return confirm('정말 이 사용자를 삭제하시겠습니까?\\n이 사용자의 모든 게시글과 댓글이 함께 삭제됩니다.')">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                        <i class="bi bi-trash"></i> 삭제
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <span class="text-muted">삭제 불가</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 게시글 관리 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-file-text"></i> 게시글 관리
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>작성자</th>
+                                        <th>내용 미리보기</th>
+                                        <th>작성일</th>
+                                        <th>공개 여부</th>
+                                        <th>댓글 수</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for post in posts %}
+                                    <tr>
+                                        <td>{{ post.id }}</td>
+                                        <td>{{ post.author.username }}</td>
+                                        <td>
+                                            <div class="text-truncate" style="max-width: 200px;" title="{{ post.content }}">
+                                                {{ post.content[:50] }}{% if post.content|length > 50 %}...{% endif %}
+                                            </div>
+                                        </td>
+                                        <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td>
+                                            {% if post.is_public %}
+                                                <span class="badge bg-success">공개</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">비공개</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ post.comments|length }}개</td>
+                                        <td>
+                                            <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-outline-primary btn-sm">
+                                                <i class="bi bi-eye"></i> 보기
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

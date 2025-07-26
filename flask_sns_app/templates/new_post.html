@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}새 글 작성 - 개인 SNS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle"></i> 새 글 작성
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="content" class="form-label">내용</label>
+                        <textarea class="form-control" id="content" name="content" rows="6" 
+                                  placeholder="무엇을 공유하고 싶으신가요?&#10;&#10;URL을 포함하면 자동으로 미리보기가 생성됩니다.&#10;예: https://www.youtube.com/watch?v=..." required></textarea>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> 
+                            URL을 포함하면 자동으로 미리보기가 생성됩니다. YouTube 링크도 지원됩니다.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="files" class="form-label">
+                            <i class="bi bi-paperclip"></i> 파일 첨부
+                        </label>
+                        <input type="file" class="form-control" id="files" name="files" multiple 
+                               accept="image/*,.pdf,.doc,.docx,.txt,.rtf,.mp4,.avi,.mov,.wmv,.flv,.mkv,.mp3,.wav,.flac,.ogg,.m4a,.zip,.rar,.7z,.tar,.gz">
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> 
+                            최대 10MB까지, 여러 파일을 선택할 수 있습니다.
+                            <br>
+                            <strong>지원 형식:</strong> 이미지(JPG, PNG, GIF), 문서(PDF, DOC, TXT), 동영상(MP4, AVI), 음악(MP3, WAV), 압축파일(ZIP, RAR)
+                        </div>
+                    </div>
+                    
+                    <div id="file-preview" class="mb-3" style="display: none;">
+                        <label class="form-label">선택된 파일:</label>
+                        <div id="file-list" class="border rounded p-3 bg-light"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_public" name="is_public" checked>
+                            <label class="form-check-label" for="is_public">
+                                <i class="bi bi-globe"></i> 공개 게시글
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            체크 해제하면 나만 볼 수 있는 비공개 게시글이 됩니다.
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> 취소
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> 게시하기
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 실시간 글자 수 카운터
+document.getElementById('content').addEventListener('input', function() {
+    const maxLength = 1000;
+    const currentLength = this.value.length;
+    const remaining = maxLength - currentLength;
+    
+    // 글자 수 표시 업데이트
+    let counter = document.getElementById('char-counter');
+    if (!counter) {
+        counter = document.createElement('div');
+        counter.id = 'char-counter';
+        counter.className = 'form-text';
+        this.parentNode.appendChild(counter);
+    }
+    
+    if (remaining < 0) {
+        counter.innerHTML = `<span class="text-danger">글자 수 초과: ${Math.abs(remaining)}자</span>`;
+    } else {
+        counter.innerHTML = `글자 수: ${currentLength}/${maxLength}`;
+    }
+});
+
+// 파일 선택 미리보기
+document.getElementById('files').addEventListener('change', function() {
+    const fileList = document.getElementById('file-list');
+    const filePreview = document.getElementById('file-preview');
+    
+    if (this.files.length > 0) {
+        fileList.innerHTML = '';
+        
+        for (let i = 0; i < this.files.length; i++) {
+            const file = this.files[i];
+            const fileSize = (file.size / 1024 / 1024).toFixed(2);
+            
+            const fileItem = document.createElement('div');
+            fileItem.className = 'd-flex align-items-center mb-2';
+            fileItem.innerHTML = `
+                <i class="bi bi-file-earmark me-2"></i>
+                <div class="flex-grow-1">
+                    <div class="fw-bold">${file.name}</div>
+                    <small class="text-muted">${fileSize} MB</small>
+                </div>
+            `;
+            
+            fileList.appendChild(fileItem);
+        }
+        
+        filePreview.style.display = 'block';
+    } else {
+        filePreview.style.display = 'none';
+    }
+});
+
+// URL 미리보기 미리보기 (선택사항)
+document.getElementById('content').addEventListener('blur', function() {
+    const content = this.value;
+    const urlPattern = /https?:\/\/[^\s]+/g;
+    const urls = content.match(urlPattern);
+    
+    if (urls && urls.length > 0) {
+        // URL이 감지되면 미리보기 영역 표시
+        let previewArea = document.getElementById('url-preview-area');
+        if (!previewArea) {
+            previewArea = document.createElement('div');
+            previewArea.id = 'url-preview-area';
+            previewArea.className = 'mt-3 p-3 border rounded bg-light';
+            previewArea.innerHTML = '<small class="text-muted"><i class="bi bi-info-circle"></i> URL이 감지되었습니다. 게시 시 미리보기가 생성됩니다.</small>';
+            this.parentNode.appendChild(previewArea);
+        }
+    }
+});
+</script>
+{% endblock %} 
