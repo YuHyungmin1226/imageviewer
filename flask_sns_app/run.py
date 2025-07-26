@@ -14,7 +14,7 @@ from werkzeug.security import generate_password_hash
 
 if __name__ == '__main__':
     print("🚀 Flask SNS 앱을 시작합니다...")
-    print("📱 브라우저에서 http://localhost:5000 으로 접속하세요")
+    print("📱 브라우저에서 http://localhost:5001 으로 접속하세요")
     print("🔑 기본 관리자 계정: admin / admin123")
     print("⏹️  종료하려면 Ctrl+C를 누르세요")
     print("-" * 50)
@@ -40,4 +40,4 @@ if __name__ == '__main__':
             print("ℹ️  관리자 계정이 이미 존재합니다.")
     
     print("🌐 웹 서버를 시작합니다...")
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    app.run(debug=True, host='0.0.0.0', port=5001) 

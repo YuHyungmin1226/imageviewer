@@ -8,5 +8,5 @@ requests==2.31.0
 beautifulsoup4==4.12.2
 python-dotenv==1.0.0
 Pillow==10.0.1
-python-magic-bin==0.4.14
+python-magic==0.4.27
 waitress==2.1.2 
