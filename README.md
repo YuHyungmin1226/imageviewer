@@ -1,82 +1,68 @@
-# Workspace 프로젝트 안내
+# HMYU 워크스페이스
 
-이 저장소에는 다음과 같은 Python 기반 웹 프로젝트가 포함되어 있습니다.
-
----
-
-## 1. web_timetable_app
-
-- **설명:**
-  - 전국 초·중·고등학교의 시간표를 NEIS Open API로 조회할 수 있는 Streamlit 기반 웹앱입니다.
-- **실행 방법:**
-  1. 필요한 패키지 설치
-     ```bash
-     pip install -r web_timetable_app/requirements.txt
-     ```
-  2. 웹앱 실행
-     ```bash
-     streamlit run web_timetable_app/streamlit_timetable.py
-     ```
-  3. 브라우저에서 `http://localhost:8501` 접속
-- **주요 기능:**
-  - 학교 검색 및 선택
-  - 학년/반/주차별 시간표 조회
-  - 과목 하이라이트 기능
+이 저장소는 Python 기반 웹 프로젝트들의 모음입니다. 각 프로젝트는 독립적인 Git 저장소로 관리됩니다.
 
 ---
 
-## 2. personal_sns_app
+## 📁 프로젝트 구조
 
-- **설명:**
-  - Streamlit 기반의 개인 SNS 웹앱입니다.
-  - 텍스트, 이미지, 동영상, 오디오 파일 첨부 게시글 작성 가능
-- **실행 방법:**
-  1. 필요한 패키지 설치
-     ```bash
-     pip install -r personal_sns_app/requirements.txt
-     ```
-  2. Supabase 설정 (선택사항)
-     - `.streamlit/secrets.toml` 파일에 Supabase URL과 API 키 설정
-     - `supabase_schema.sql`을 Supabase SQL 편집기에서 실행
-  3. 앱 실행
-     ```bash
-     cd personal_sns_app
-     streamlit run app.py
-     ```
-  4. 브라우저에서 `http://localhost:8501` 접속
-- **주요 기능:**
-  - 게시글 CRUD(생성, 삭제, 댓글, 좋아요)
-  - 파일 업로드 및 미리보기
-  - 사용자 계정 관리 (회원가입/로그인)
-  - 관리자 기능 (사용자 관리, 전체 게시글 관리)
-  - Supabase 클라우드 데이터베이스 연동
-  - 세션 지속성 (새로고침 후에도 로그인 유지)
-- **기본 계정:**
-  - **관리자**: `admin` / `admin123` (첫 로그인 시 비밀번호 변경 필요)
-- **배포:**
-  - Streamlit Cloud 배포 지원
-  - 자세한 배포 가이드는 `personal_sns_app/DEPLOYMENT_GUIDE.md` 참조
+### 1. Flask SNS 애플리케이션
+- **저장소:** `flask_sns_repo/`
+- **설명:** Flask 기반의 소셜 네트워킹 서비스 애플리케이션
+- **기술 스택:** Flask, SQLAlchemy, SQLite, HTML/CSS/JavaScript
+- **주요 기능:** 사용자 인증, 게시물 CRUD, 댓글, 파일 업로드, 관리자 기능
+
+### 2. 웹 시간표 애플리케이션
+- **저장소:** `web_timetable_repo/`
+- **설명:** Streamlit 기반의 학교 시간표 조회 웹앱
+- **기술 스택:** Streamlit, NEIS Open API
+- **주요 기능:** 학교 검색, 시간표 조회, 과목 하이라이트
 
 ---
 
-## 폴더 구조 예시
+## 🚀 각 프로젝트 실행 방법
 
+### Flask SNS 앱 실행
+```bash
+cd flask_sns_repo
+python3 run.py
 ```
-Workspace/
-├── personal_sns_app/
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── .streamlit/
-│   │   └── secrets.toml
-│   ├── uploads/
-│   └── supabase_schema.sql
-├── web_timetable_app/
-│   ├── streamlit_timetable.py
-│   └── requirements.txt
-├── README.md
-└── requirements.txt (전체 의존성 목록, 선택)
+
+### 웹 시간표 앱 실행
+```bash
+cd web_timetable_repo
+streamlit run streamlit_timetable.py
 ```
 
 ---
 
-> 각 프로젝트별 상세 설명 및 사용법은 각 폴더의 README.md 또는 주석을 참고하세요.
+## 📋 현재 디렉토리 구조
+
+```
+HMYU/
+├── flask_sns_repo/          # Flask SNS 애플리케이션 (독립 저장소)
+├── web_timetable_repo/      # 웹 시간표 애플리케이션 (독립 저장소)
+├── .venv/                   # Python 가상환경
+├── .devcontainer/           # VS Code Dev Container 설정
+├── run.sh                   # 실행 스크립트
+├── README.md                # 이 파일
+└── .gitignore              # Git 제외 파일 설정
+```
+
+---
+
+## 🔧 개발 환경
+
+- **Python:** 3.11+
+- **가상환경:** `.venv/`
+- **Dev Container:** VS Code 개발 환경 자동 설정
+
+---
+
+## 📄 라이선스
+
+이 프로젝트들은 교육 목적으로 제작되었습니다.
+
+---
+
+> 각 프로젝트의 상세한 설명과 사용법은 해당 저장소의 README.md를 참고하세요.
