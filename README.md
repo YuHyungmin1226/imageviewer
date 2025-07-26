@@ -1,4 +1,4 @@
-# HMYU 워크스페이스
+# ImageViewer 워크스페이스
 
 이 저장소는 Python 기반 웹 프로젝트들의 관리 및 분리 작업을 위한 워크스페이스입니다.
 
@@ -21,7 +21,7 @@
 ## 📁 현재 워크스페이스 구조
 
 ```
-HMYU/
+imageviewer/
 ├── .git/                    # Git 저장소
 ├── .gitignore              # Git 제외 파일 설정
 └── README.md               # 이 파일
