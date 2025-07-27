@@ -20,29 +20,25 @@ if platform.system() == "Windows":
 is_windows = platform.system() == "Windows"
 is_macos = platform.system() == "Darwin"
 
-# 디버깅용 로그 파일
-DEBUG_LOG = os.path.expanduser("~/Desktop/imageviewer_debug.log")
+# 디버깅용 로그 파일 (비활성화됨)
+DEBUG_LOG = None
 
 def log_debug(message):
-    """디버그 메시지를 파일에 기록"""
-    try:
-        with open(DEBUG_LOG, "a", encoding="utf-8") as f:
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            f.write(f"[{timestamp}] {message}\n")
-    except Exception as e:
-        print(f"로그 기록 실패: {e}")
+    """디버그 메시지를 파일에 기록 (비활성화됨)"""
+    # 로그 기능이 비활성화되어 있음
+    pass
 
-# 시작 시 로그
-log_debug("===== 프로그램 시작 =====")
-log_debug(f"OS: {platform.system()}")
-log_debug(f"Python 버전: {sys.version}")
-log_debug(f"명령줄 인수: {sys.argv}")
-log_debug(f"현재 작업 디렉토리: {os.getcwd()}")
+# 시작 시 로그 (비활성화됨)
+# log_debug("===== 프로그램 시작 =====")
+# log_debug(f"OS: {platform.system()}")
+# log_debug(f"Python 버전: {sys.version}")
+# log_debug(f"명령줄 인수: {sys.argv}")
+# log_debug(f"현재 작업 디렉토리: {os.getcwd()}")
 
-# macOS에서 앱 번들 내 위치 확인
-if hasattr(sys, 'frozen') and getattr(sys, 'frozen'):
-    log_debug(f"앱 번들 경로: {sys.executable}")
-    log_debug(f"앱 리소스 경로: {getattr(sys, '_MEIPASS', 'Not available')}")
+# macOS에서 앱 번들 내 위치 확인 (비활성화됨)
+# if hasattr(sys, 'frozen') and getattr(sys, 'frozen'):
+#     log_debug(f"앱 번들 경로: {sys.executable}")
+#     log_debug(f"앱 리소스 경로: {getattr(sys, '_MEIPASS', 'Not available')}")
 
 class WindowsFileAssociation:
     """Windows 파일 연결 관리 클래스"""

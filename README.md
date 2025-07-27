@@ -32,9 +32,9 @@
 - **상태 확인**: 현재 등록 상태 실시간 확인
 
 ### 🔍 디버그 및 모니터링
-- **상세 로그**: `~/Desktop/imageviewer_debug.log`에 모든 작업 기록
 - **메모리 정보**: `Ctrl+M`으로 실시간 메모리 상태 확인
 - **디버그 정보**: 시스템 정보 및 캐시 상태 표시
+- **로그 기능**: 디버그 로그 기능은 사용자 요청에 따라 비활성화됨
 
 ## 🚀 설치 및 실행
 
@@ -217,7 +217,7 @@ self.image_cache = ImageCache(max_size=20, max_memory_mb=300)  # 더 큰 캐시
 - Python 버전
 - 오류 메시지
 - 이미지 파일 형식
-- `~/Desktop/imageviewer_debug.log` 파일 내용
+- 프로그램 실행 시 발생하는 오류 메시지
 
 ### 기능 요청
 새로운 기능이나 개선사항은 [Issues](https://github.com/YuHyungmin1226/imageviewer/issues)에 등록해주세요.
