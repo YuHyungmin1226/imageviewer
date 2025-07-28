@@ -10,11 +10,21 @@ import gc
 import weakref
 from collections import OrderedDict
 import threading
+from typing import Optional, List, Dict, Tuple, Any
 
 # Windows 레지스트리 관련 import
 if platform.system() == "Windows":
     import winreg
     import subprocess
+
+# 상수 정의
+SUPPORTED_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif")
+DEFAULT_WINDOW_SIZE = "800x600"
+MIN_WINDOW_SIZE = (400, 300)
+DEFAULT_CANVAS_SIZE = (640, 480)
+MAX_CACHE_SIZE = 15
+MAX_MEMORY_MB = 200
+MAX_RESIZE_CACHE_SIZE = 20
 
 # OS 타입 확인
 is_windows = platform.system() == "Windows"
@@ -23,7 +33,7 @@ is_macos = platform.system() == "Darwin"
 # 디버깅용 로그 파일 (비활성화됨)
 DEBUG_LOG = None
 
-def log_debug(message):
+def log_debug(message: str) -> None:
     """디버그 메시지를 파일에 기록 (비활성화됨)"""
     # 로그 기능이 비활성화되어 있음
     pass
@@ -46,9 +56,9 @@ class WindowsFileAssociation:
     def __init__(self):
         self.app_name = "ImageViewer"
         self.app_description = "HM Utils Image Viewer"
-        self.supported_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif']
+        self.supported_extensions = list(SUPPORTED_EXTENSIONS)
         
-    def get_executable_path(self):
+    def get_executable_path(self) -> str:
         """실행 파일 경로 반환"""
         if hasattr(sys, 'frozen') and getattr(sys, 'frozen'):
             # PyInstaller로 빌드된 실행 파일
@@ -57,7 +67,7 @@ class WindowsFileAssociation:
             # Python 스크립트
             return sys.executable + ' "' + os.path.abspath(__file__) + '"'
     
-    def register_file_association(self, extension):
+    def register_file_association(self, extension: str) -> bool:
         """특정 확장자를 ImageViewer와 연결"""
         try:
             # 확장자 키 생성
@@ -94,7 +104,7 @@ class WindowsFileAssociation:
             log_debug(f"파일 연결 등록 실패: {extension} - {str(e)}")
             return False
     
-    def unregister_file_association(self, extension):
+    def unregister_file_association(self, extension: str) -> bool:
         """특정 확장자의 연결 해제"""
         try:
             # 확장자 키 삭제
@@ -116,7 +126,7 @@ class WindowsFileAssociation:
             log_debug(f"파일 연결 해제 실패: {extension} - {str(e)}")
             return False
     
-    def register_all_extensions(self):
+    def register_all_extensions(self) -> int:
         """모든 지원 확장자를 등록"""
         success_count = 0
         for ext in self.supported_extensions:
@@ -126,7 +136,7 @@ class WindowsFileAssociation:
         log_debug(f"전체 파일 연결 등록 완료: {success_count}/{len(self.supported_extensions)}")
         return success_count
     
-    def unregister_all_extensions(self):
+    def unregister_all_extensions(self) -> int:
         """모든 지원 확장자의 연결 해제"""
         success_count = 0
         for ext in self.supported_extensions:
@@ -136,7 +146,7 @@ class WindowsFileAssociation:
         log_debug(f"전체 파일 연결 해제 완료: {success_count}/{len(self.supported_extensions)}")
         return success_count
     
-    def is_registered(self, extension):
+    def is_registered(self, extension: str) -> bool:
         """특정 확장자가 등록되어 있는지 확인"""
         try:
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, f"Software\\Classes\\{extension}")
@@ -146,7 +156,7 @@ class WindowsFileAssociation:
         except:
             return False
     
-    def get_registration_status(self):
+    def get_registration_status(self) -> Dict[str, bool]:
         """모든 확장자의 등록 상태 확인"""
         status = {}
         for ext in self.supported_extensions:
@@ -156,14 +166,14 @@ class WindowsFileAssociation:
 class ImageCache:
     """이미지 캐싱 시스템"""
     
-    def __init__(self, max_size=10, max_memory_mb=100):
+    def __init__(self, max_size: int = 10, max_memory_mb: int = 100):
         self.max_size = max_size  # 최대 캐시 개수
         self.max_memory_mb = max_memory_mb  # 최대 메모리 사용량 (MB)
-        self.cache = OrderedDict()  # LRU 캐시 구현
+        self.cache: OrderedDict[str, Image.Image] = OrderedDict()  # LRU 캐시 구현
         self.memory_usage = 0  # 현재 메모리 사용량 (bytes)
         self.lock = threading.Lock()
         
-    def _estimate_memory_usage(self, image):
+    def _estimate_memory_usage(self, image: Image.Image) -> int:
         """이미지의 메모리 사용량 추정 (bytes)"""
         if hasattr(image, 'size') and hasattr(image, 'mode'):
             width, height = image.size
@@ -177,7 +187,7 @@ class ImageCache:
             return width * height * bytes_per_pixel
         return 0
     
-    def get(self, key):
+    def get(self, key: str) -> Optional[Image.Image]:
         """캐시에서 이미지 가져오기"""
         with self.lock:
             if key in self.cache:
@@ -188,7 +198,7 @@ class ImageCache:
             log_debug(f"캐시 미스: {key}")
             return None
     
-    def put(self, key, image):
+    def put(self, key: str, image: Image.Image) -> None:
         """캐시에 이미지 저장"""
         with self.lock:
             # 이미 존재하는 경우 제거
@@ -215,14 +225,14 @@ class ImageCache:
             self.memory_usage += new_memory
             log_debug(f"캐시에 추가됨: {key} (메모리: {self.memory_usage / 1024 / 1024:.2f}MB)")
     
-    def clear(self):
+    def clear(self) -> None:
         """캐시 완전 정리"""
         with self.lock:
             self.cache.clear()
             self.memory_usage = 0
             log_debug("캐시 완전 정리됨")
     
-    def get_stats(self):
+    def get_stats(self) -> Dict[str, Any]:
         """캐시 통계 반환"""
         with self.lock:
             return {
@@ -233,21 +243,21 @@ class ImageCache:
             }
 
 class ImageViewer:
-    def __init__(self, initial_file=None):
+    def __init__(self, initial_file: Optional[str] = None):
         self.root = tk.Tk()
         self.root.title("Image Viewer")
-        self.root.geometry("800x600")  # 기본 창 크기를 더 크게 설정
-        self.root.minsize(400, 300)  # 최소 창 크기 설정
+        self.root.geometry(DEFAULT_WINDOW_SIZE)  # 기본 창 크기를 더 크게 설정
+        self.root.minsize(MIN_WINDOW_SIZE[0], MIN_WINDOW_SIZE[1])  # 최소 창 크기 설정
 
-        self.images = []
-        self.current_image_index = 0
-        self.fullscreen = False
+        self.images: List[str] = []
+        self.current_image_index: int = 0
+        self.fullscreen: bool = False
         
         # 메모리 관리 및 캐싱 시스템 초기화
-        self.image_cache = ImageCache(max_size=15, max_memory_mb=200)
-        self.current_photo = None
-        self.current_image_path = None
-        self.resize_cache = {}  # 리사이즈된 이미지 캐시
+        self.image_cache = ImageCache(max_size=MAX_CACHE_SIZE, max_memory_mb=MAX_MEMORY_MB)
+        self.current_photo: Optional[ImageTk.PhotoImage] = None
+        self.current_image_path: Optional[str] = None
+        self.resize_cache: Dict[str, Image.Image] = {}  # 리사이즈된 이미지 캐시
         
         # Windows 파일 연결 관리 초기화
         if is_windows:
@@ -278,7 +288,7 @@ class ImageViewer:
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.root.mainloop()
     
-    def setup_bindings(self):
+    def setup_bindings(self) -> None:
         """단축키 및 이벤트 바인딩 설정"""
         self.root.bind("<Configure>", self.on_window_resize)
         self.root.bind("<Left>", lambda e: self.show_previous_image())
@@ -289,13 +299,13 @@ class ImageViewer:
         self.root.bind("<Control-r>", lambda e: self.clear_cache())  # Ctrl+R로 캐시 정리
         self.root.bind("<Control-m>", lambda e: self.show_memory_info())  # Ctrl+M으로 메모리 정보
     
-    def handle_open_document(self, *args):
+    def handle_open_document(self, *args: Any) -> None:
         """macOS의 파일 오픈 이벤트 처리"""
         log_debug(f"macOS 파일 오픈 이벤트: {args}")
         if args and os.path.isfile(args[0]):
             self.open_file(args[0])
 
-    def create_menu(self):
+    def create_menu(self) -> None:
         """메뉴 생성"""
         self.menubar = tk.Menu(self.root)
         self.root.config(menu=self.menubar)
@@ -335,7 +345,7 @@ class ImageViewer:
         # 단축키 바인딩
         self.root.bind("<Control-o>", lambda e: self.select_image())
 
-    def register_as_default(self):
+    def register_as_default(self) -> None:
         """ImageViewer를 기본 이미지 뷰어로 등록"""
         if not is_windows:
             messagebox.showwarning("지원되지 않음", "이 기능은 Windows에서만 사용할 수 있습니다.")
@@ -364,7 +374,7 @@ class ImageViewer:
             log_debug(error_msg)
             messagebox.showerror("오류", error_msg)
 
-    def unregister_as_default(self):
+    def unregister_as_default(self) -> None:
         """ImageViewer의 기본 이미지 뷰어 등록 해제"""
         if not is_windows:
             messagebox.showwarning("지원되지 않음", "이 기능은 Windows에서만 사용할 수 있습니다.")
@@ -398,7 +408,7 @@ class ImageViewer:
             log_debug(error_msg)
             messagebox.showerror("오류", error_msg)
 
-    def show_association_status(self):
+    def show_association_status(self) -> None:
         """파일 연결 상태 표시"""
         if not is_windows:
             messagebox.showwarning("지원되지 않음", "이 기능은 Windows에서만 사용할 수 있습니다.")
@@ -425,7 +435,7 @@ class ImageViewer:
             log_debug(error_msg)
             messagebox.showerror("오류", error_msg)
 
-    def check_admin_privileges(self):
+    def check_admin_privileges(self) -> bool:
         """관리자 권한 확인"""
         try:
             # 레지스트리 쓰기 권한 테스트
@@ -435,7 +445,7 @@ class ImageViewer:
         except:
             return False
 
-    def select_image(self):
+    def select_image(self) -> None:
         """파일 선택 대화상자를 표시하고 선택한 이미지 열기"""
         file_path = filedialog.askopenfilename(
             title="이미지 파일 열기",
@@ -451,7 +461,7 @@ class ImageViewer:
             log_debug(f"사용자 선택 파일: {file_path}")
             self.open_file(file_path)
 
-    def open_file(self, file_path):
+    def open_file(self, file_path: str):
         """파일 경로를 받아 이미지를 열고 표시합니다."""
         log_debug(f"open_file 호출됨: {file_path}")
         
@@ -480,7 +490,7 @@ class ImageViewer:
             log_debug(error_msg)
             self.show_error(error_msg)
 
-    def get_image_files_from_directory(self, directory):
+    def get_image_files_from_directory(self, directory: str) -> List[str]:
         try:
             all_files = os.listdir(directory)
             log_debug(f"디렉토리의 모든 파일: {len(all_files)}개")
@@ -493,14 +503,14 @@ class ImageViewer:
             log_debug(f"디렉토리 열기 오류: {str(e)}")
             return []
 
-    def is_image_file(self, file_path):
+    def is_image_file(self, file_path: str) -> bool:
         """파일이 지원되는 이미지 형식인지 확인"""
         _, ext = os.path.splitext(file_path)
-        result = ext.lower() in (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif")
+        result = ext.lower() in SUPPORTED_EXTENSIONS
         log_debug(f"파일 확인: {file_path} - 이미지 여부: {result}")
         return result
 
-    def get_current_image_index(self, file_path):
+    def get_current_image_index(self, file_path: str) -> int:
         """주어진 파일 경로의 이미지 인덱스 반환"""
         file_path = os.path.abspath(file_path).lower()
         for i, image_path in enumerate(self.images):
@@ -508,7 +518,7 @@ class ImageViewer:
                 return i
         return 0
 
-    def load_image_from_cache_or_file(self, file_path):
+    def load_image_from_cache_or_file(self, file_path: str) -> Image.Image:
         """캐시에서 이미지를 가져오거나 파일에서 로드"""
         # 캐시에서 먼저 확인
         cached_image = self.image_cache.get(file_path)
@@ -525,7 +535,7 @@ class ImageViewer:
             log_debug(f"이미지 로드 실패: {file_path} - {str(e)}")
             raise
 
-    def show_image(self, index):
+    def show_image(self, index: int):
         """주어진 인덱스의 이미지 표시"""
         if not self.images:
             self.show_error("이미지가 없습니다.")
@@ -581,14 +591,14 @@ class ImageViewer:
         gc.collect()
         log_debug("메모리 정리 완료")
 
-    def get_resized_image(self, image, file_path):
+    def get_resized_image(self, image: Image.Image, file_path: str) -> Image.Image:
         """리사이즈된 이미지 가져오기 (캐시 활용)"""
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
         
         if canvas_width <= 1 or canvas_height <= 1:
-            canvas_width = 640
-            canvas_height = 480
+            canvas_width = DEFAULT_CANVAS_SIZE[0]
+            canvas_height = DEFAULT_CANVAS_SIZE[1]
         
         # 캐시 키 생성
         cache_key = f"{file_path}_{canvas_width}x{canvas_height}"
@@ -602,7 +612,7 @@ class ImageViewer:
         resized_image = self.resize_image(image, canvas_width, canvas_height)
         
         # 리사이즈 캐시 크기 제한 (최대 20개)
-        if len(self.resize_cache) >= 20:
+        if len(self.resize_cache) >= MAX_RESIZE_CACHE_SIZE:
             # 가장 오래된 항목 제거
             oldest_key = next(iter(self.resize_cache))
             del self.resize_cache[oldest_key]
@@ -613,7 +623,7 @@ class ImageViewer:
         
         return resized_image
 
-    def resize_image(self, image, canvas_width, canvas_height):
+    def resize_image(self, image: Image.Image, canvas_width: int, canvas_height: int) -> Image.Image:
         """이미지를 캔버스 크기에 맞게 리사이즈"""
         image_ratio = image.width / image.height
         canvas_ratio = canvas_width / canvas_height
@@ -627,7 +637,7 @@ class ImageViewer:
             
         return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-    def display_image(self):
+    def display_image(self) -> None:
         """현재 이미지를 캔버스에 표시"""
         if not self.current_photo:
             return
@@ -637,34 +647,34 @@ class ImageViewer:
         canvas_height = self.canvas.winfo_height()
         
         if canvas_width <= 1 or canvas_height <= 1:
-            canvas_width = 640
-            canvas_height = 480
+            canvas_width = DEFAULT_CANVAS_SIZE[0]
+            canvas_height = DEFAULT_CANVAS_SIZE[1]
             
         x = (canvas_width - self.current_photo.width()) // 2
         y = (canvas_height - self.current_photo.height()) // 2
         
         self.canvas.create_image(x, y, anchor=tk.NW, image=self.current_photo)
 
-    def show_next_image(self):
+    def show_next_image(self) -> None:
         """다음 이미지 표시"""
         if self.images:
             self.current_image_index = (self.current_image_index + 1) % len(self.images)
             self.show_image(self.current_image_index)
 
-    def show_previous_image(self):
+    def show_previous_image(self) -> None:
         """이전 이미지 표시"""
         if self.images:
             self.current_image_index = (self.current_image_index - 1) % len(self.images)
             self.show_image(self.current_image_index)
 
-    def on_window_resize(self, event):
+    def on_window_resize(self, event: tk.Event) -> None:
         """윈도우 크기 변경 시 이미지 리사이즈"""
         if hasattr(self, 'current_photo') and self.current_photo:
             # 리사이즈 캐시 클리어 (창 크기가 변경되었으므로)
             self.resize_cache.clear()
             self.show_image(self.current_image_index)
 
-    def toggle_fullscreen(self):
+    def toggle_fullscreen(self) -> None:
         """전체 화면 전환"""
         self.fullscreen = not self.fullscreen
         self.root.attributes("-fullscreen", self.fullscreen)
@@ -676,10 +686,10 @@ class ImageViewer:
         else:
             # 일반 모드에서 메뉴바 복원
             self.root.config(menu=self.menubar)
-            self.root.geometry("800x600")  # 전체화면 해제 시 기본 크기 변경
+            self.root.geometry(DEFAULT_WINDOW_SIZE)  # 전체화면 해제 시 기본 크기 변경
             log_debug("일반 모드: 메뉴바 복원")
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """캐시 정리"""
         self.image_cache.clear()
         self.resize_cache.clear()
@@ -687,18 +697,18 @@ class ImageViewer:
         log_debug("모든 캐시 정리 완료")
         messagebox.showinfo("캐시 정리", "모든 캐시가 정리되었습니다.")
 
-    def show_memory_info(self):
+    def show_memory_info(self) -> None:
         """메모리 정보 표시"""
         cache_stats = self.image_cache.get_stats()
         info = f"이미지 캐시:\n"
         info += f"  - 캐시된 이미지: {cache_stats['size']}/{cache_stats['max_size']}\n"
         info += f"  - 메모리 사용량: {cache_stats['memory_usage_mb']:.2f}MB/{cache_stats['max_memory_mb']}MB\n"
         info += f"리사이즈 캐시:\n"
-        info += f"  - 캐시된 리사이즈: {len(self.resize_cache)}/20\n"
+        info += f"  - 캐시된 리사이즈: {len(self.resize_cache)}/{MAX_RESIZE_CACHE_SIZE}\n"
         
         messagebox.showinfo("메모리 정보", info)
 
-    def quit(self):
+    def quit(self) -> None:
         """프로그램 종료"""
         log_debug("프로그램 종료")
         # 메모리 정리
@@ -708,11 +718,11 @@ class ImageViewer:
         self.cleanup_memory()
         self.root.quit()
 
-    def show_error(self, message):
+    def show_error(self, message: str) -> None:
         """오류 메시지 표시"""
         messagebox.showerror("오류", message)
 
-    def show_debug_info(self):
+    def show_debug_info(self) -> None:
         """디버그 정보 표시"""
         cache_stats = self.image_cache.get_stats()
         info = f"OS: {platform.system()}\n"
@@ -722,7 +732,7 @@ class ImageViewer:
         info += f"현재 이미지 인덱스: {self.current_image_index}\n"
         info += f"캐시된 이미지: {cache_stats['size']}/{cache_stats['max_size']}\n"
         info += f"메모리 사용량: {cache_stats['memory_usage_mb']:.2f}MB\n"
-        info += f"리사이즈 캐시: {len(self.resize_cache)}/20\n"
+        info += f"리사이즈 캐시: {len(self.resize_cache)}/{MAX_RESIZE_CACHE_SIZE}\n"
         
         # Windows 파일 연결 상태 추가
         if is_windows and hasattr(self, 'file_association'):
