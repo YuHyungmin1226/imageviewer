@@ -3,8 +3,9 @@
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
+![Type Hints](https://img.shields.io/badge/Type%20Hints-Enabled-blue.svg)
 
-**ImageViewer**는 Python과 Tkinter로 개발된 강력하고 가벼운 이미지 뷰어 애플리케이션입니다. 다양한 이미지 형식을 지원하며, 직관적인 인터페이스와 고급 기능을 제공합니다.
+**ImageViewer**는 Python과 Tkinter로 개발된 강력하고 가벼운 이미지 뷰어 애플리케이션입니다. 다양한 이미지 형식을 지원하며, 직관적인 인터페이스와 고급 기능을 제공합니다. 최신 코드 최적화로 타입 힌트 지원과 향상된 성능을 제공합니다.
 
 ## ✨ 주요 기능
 
@@ -21,7 +22,7 @@
 
 ### 💾 메모리 관리
 - **스마트 캐싱**: 최대 15개 이미지 캐시 (200MB 제한)
-- **리사이즈 캐싱**: 창 크기별 리사이즈 결과 캐시
+- **리사이즈 캐싱**: 창 크기별 리사이즈 결과 캐시 (최대 20개)
 - **자동 메모리 정리**: 사용하지 않는 이미지 자동 제거
 - **수동 캐시 정리**: `Ctrl+R`로 즉시 캐시 정리
 
@@ -36,6 +37,12 @@
 - **디버그 정보**: 시스템 정보 및 캐시 상태 표시
 - **로그 기능**: 디버그 로그 기능은 사용자 요청에 따라 비활성화됨
 
+### 🚀 코드 품질
+- **타입 힌트**: 모든 함수와 메서드에 타입 힌트 적용
+- **상수 정의**: 매직 넘버 제거 및 상수화
+- **성능 최적화**: 메모리 사용량 및 캐시 시스템 개선
+- **코드 가독성**: 일관된 코딩 스타일 적용
+
 ## 🚀 설치 및 실행
 
 ### Python으로 실행
@@ -45,7 +52,7 @@ git clone https://github.com/YuHyungmin1226/imageviewer.git
 cd imageviewer
 
 # 의존성 설치
-pip install Pillow
+pip install -r requirements.txt
 
 # 실행
 python imgViewer.py
@@ -99,7 +106,7 @@ python imgViewer.py "path/to/image.jpg"
 
 ### 최소 요구사항
 - **OS**: Windows 10/11, macOS 10.14+, Linux
-- **Python**: 3.8 이상
+- **Python**: 3.8 이상 (타입 힌트 지원)
 - **메모리**: 512MB RAM
 - **저장공간**: 50MB 이상
 
@@ -120,6 +127,10 @@ Pillow>=9.0.0
 ```
 pyinstaller>=5.0.0
 ```
+
+### 타입 힌트 지원
+- **Python 3.5+**: `typing` 모듈 기본 제공
+- **개발 도구**: `mypy>=1.0.0` (선택사항)
 
 ## 🔧 빌드
 
@@ -148,7 +159,7 @@ pyinstaller --onefile --name=ImageViewer imgViewer.py
 
 #### 실행이 안 되는 경우
 1. **Python 버전 확인**: Python 3.8 이상 필요
-2. **의존성 설치**: `pip install Pillow` 실행
+2. **의존성 설치**: `pip install -r requirements.txt` 실행
 3. **권한 확인**: 파일 실행 권한 확인
 
 #### 이미지가 안 열리는 경우
@@ -185,6 +196,15 @@ self.image_cache = ImageCache(max_size=20, max_memory_mb=300)  # 더 큰 캐시
 - `Ctrl+M`으로 실시간 메모리 상태 확인
 - 로그 파일에서 메모리 사용량 추적
 
+### 타입 힌트 검증
+```bash
+# mypy 설치 (선택사항)
+pip install mypy
+
+# 타입 검사 실행
+mypy imgViewer.py
+```
+
 ## 🔒 보안 정보
 
 ### Windows 레지스트리 수정
@@ -204,6 +224,12 @@ self.image_cache = ImageCache(max_size=20, max_memory_mb=300)  # 더 큰 캐시
 3. **Commit** 변경사항 (`git commit -m 'Add some AmazingFeature'`)
 4. **Push** 브랜치 (`git push origin feature/AmazingFeature`)
 5. **Pull Request** 생성
+
+### 개발 가이드라인
+- **타입 힌트**: 모든 함수와 메서드에 타입 힌트 추가
+- **상수 사용**: 매직 넘버 대신 상수 정의
+- **에러 처리**: 적절한 예외 처리 구현
+- **문서화**: 함수와 클래스에 docstring 추가
 
 ## 📝 라이선스
 
