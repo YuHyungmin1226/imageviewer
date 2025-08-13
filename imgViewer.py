@@ -298,6 +298,7 @@ class ImageViewer:
         self.root.bind("<Return>", lambda e: self.toggle_fullscreen())  # Enter로 전체 화면 전환
         self.root.bind("<Control-r>", lambda e: self.clear_cache())  # Ctrl+R로 캐시 정리
         self.root.bind("<Control-m>", lambda e: self.show_memory_info())  # Ctrl+M으로 메모리 정보
+        self.root.bind("<Delete>", lambda e: self.delete_current_image())  # Delete 키로 현재 이미지 삭제
     
     def handle_open_document(self, *args: Any) -> None:
         """macOS의 파일 오픈 이벤트 처리"""
@@ -717,6 +718,54 @@ class ImageViewer:
         self.resize_cache.clear()
         self.cleanup_memory()
         self.root.quit()
+
+    def delete_current_image(self) -> None:
+        """현재 보고 있는 이미지를 삭제합니다."""
+        if not self.current_image_path:
+            messagebox.showinfo("삭제 불가", "삭제할 이미지가 없습니다.")
+            return
+
+        file_to_delete = self.current_image_path
+        file_name = os.path.basename(file_to_delete)
+
+        if messagebox.askyesno("이미지 삭제 확인", f"'{file_name}' 파일을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다."):
+            try:
+                os.remove(file_to_delete)
+                log_debug(f"파일 삭제 성공: {file_to_delete}")
+                messagebox.showinfo("삭제 완료", f"'{file_name}' 파일이 성공적으로 삭제되었습니다.")
+
+                # 이미지 목록에서 삭제된 파일 제거
+                if file_to_delete in self.images:
+                    self.images.remove(file_to_delete)
+
+                # 캐시에서도 제거
+                self.image_cache.clear() # 전체 캐시를 비우는 것이 가장 안전
+                self.resize_cache.clear()
+
+                # 다음 이미지 표시 또는 빈 화면
+                if self.images:
+                    # 현재 인덱스가 목록의 끝을 넘어가지 않도록 조정
+                    if self.current_image_index >= len(self.images):
+                        self.current_image_index = len(self.images) - 1
+                    # 현재 인덱스가 음수가 되지 않도록 조정 (모든 이미지가 삭제된 경우)
+                    if self.current_image_index < 0:
+                        self.current_image_index = 0
+                    self.show_image(self.current_image_index)
+                else:
+                    self.canvas.delete("all")
+                    self.root.title("Image Viewer")
+                    self.current_photo = None
+                    self.current_image_path = None
+                    messagebox.showinfo("알림", "더 이상 표시할 이미지가 없습니다.")
+
+            except OSError as e:
+                error_msg = f"파일 삭제 실패: {file_name}\n{str(e)}\n\n파일이 사용 중이거나 권한이 없을 수 있습니다."
+                log_debug(error_msg)
+                messagebox.showerror("삭제 오류", error_msg)
+            except Exception as e:
+                error_msg = f"예상치 못한 오류 발생: {file_name}\n{str(e)}"
+                log_debug(error_msg)
+                messagebox.showerror("삭제 오류", error_msg)
 
     def show_error(self, message: str) -> None:
         """오류 메시지 표시"""
