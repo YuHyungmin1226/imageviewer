@@ -18,7 +18,7 @@
 - **직관적인 UI**: 깔끔하고 현대적인 인터페이스
 - **전체 화면 모드**: `Enter` 키로 전체 화면 전환
 - **키보드 단축키**: 빠른 이미지 탐색 및 조작
-- **드래그 앤 드롭**: 이미지 파일을 창에 드래그하여 열기
+- **드래그 앤 드롭**: 이미지 파일을 창에 드래그하여 열기 (`tkinterdnd2` 설치 시 활성화)
 
 ### 💾 메모리 관리
 - **스마트 캐싱**: 최대 15개 이미지 캐시 (200MB 제한)
@@ -28,18 +28,20 @@
 
 ### 🔗 파일 연결 (Windows)
 - **기본 프로그램 등록**: 이미지 파일 형식을 ImageViewer와 연결
-- **관리자 권한 지원**: 안전한 Windows 레지스트리 수정
+- **권한 불필요**: 현재 사용자(`HKEY_CURRENT_USER`)에만 등록하므로 관리자 권한 없이 동작
+- **즉시 반영**: 등록/해제 후 탐색기에 변경 사항을 자동 통지 (`SHChangeNotify`)
 - **일괄 등록/해제**: 모든 지원 형식 한 번에 처리
 - **상태 확인**: 현재 등록 상태 실시간 확인
 
 ### ⚡ 성능
-- **비동기 로딩**: 백그라운드 스레드를 사용하여 이미지를 로드하므로, 대용량 이미지 파일을 열 때도 UI가 멈추지 않습니다.
+- **비동기 로딩**: 백그라운드 스레드에서 이미지를 로드·리사이즈하므로, 대용량 이미지 파일을 열 때도 UI가 멈추지 않습니다. 로딩 중에는 "로딩 중..." 안내가 표시됩니다.
+- **요청 취소**: 이미지를 빠르게 넘길 경우 이전 로드 결과는 폐기되고 최신 이미지만 표시됩니다.
 - **응답성 향상**: 이미지 로딩 중에도 사용자는 프로그램을 자유롭게 조작할 수 있습니다.
 
 ### 🔍 디버그 및 모니터링
 - **메모리 정보**: `Ctrl+M`으로 실시간 메모리 상태 확인
 - **디버그 정보**: 시스템 정보 및 캐시 상태 표시
-- **로그 기능**: 디버그 로그 기능은 사용자 요청에 따라 비활성화됨
+- **로그 기능**: 디버그 로그는 기본적으로 비활성화되어 있어 별도의 로그 파일을 생성하지 않습니다.
 
 ### 🚀 코드 품질
 - **타입 힌트**: 모든 함수와 메서드에 타입 힌트 적용
@@ -68,7 +70,7 @@ python imgViewer.py
 python build_imgviewer.py
 
 # 또는 수동 빌드
-pyinstaller --onefile --noconsole --name=ImageViewer --windowed --uac-admin imgViewer.py
+pyinstaller --onefile --noconsole --name=ImageViewer --windowed imgViewer.py
 ```
 
 ## 🎮 사용법
@@ -95,15 +97,13 @@ python imgViewer.py "path/to/image.jpg"
 
 ### Windows 파일 연결 설정
 
-1. **관리자 권한으로 실행**
-   - ImageViewer.exe를 우클릭
-   - "관리자 권한으로 실행" 선택
+> 현재 사용자 영역(`HKEY_CURRENT_USER`)에만 등록하므로 **관리자 권한이 필요 없습니다.**
 
-2. **기본 프로그램 등록**
+1. **기본 프로그램 등록**
    - `Tools > Register as Default Image Viewer` 실행
-   - 모든 지원 형식이 자동으로 등록됨
+   - 모든 지원 형식이 자동으로 등록되고, 탐색기에 즉시 반영됨
 
-3. **등록 해제**
+2. **등록 해제**
    - `Tools > Unregister as Default Image Viewer` 실행
 
 ## 🛠️ 시스템 요구사항
@@ -127,6 +127,12 @@ python imgViewer.py "path/to/image.jpg"
 Pillow>=9.0.0
 ```
 
+### 선택 패키지 (드래그 앤 드롭)
+```
+tkinterdnd2>=0.3.0
+```
+> 미설치 시 드래그 앤 드롭만 비활성화되며, 그 외 기능은 정상 동작합니다.
+
 ### 개발 패키지 (빌드용)
 ```
 pyinstaller>=5.0.0
@@ -144,7 +150,7 @@ pyinstaller>=5.0.0
 python build_imgviewer.py
 
 # 수동 빌드
-pyinstaller --onefile --noconsole --name=ImageViewer --windowed --uac-admin imgViewer.py
+pyinstaller --onefile --noconsole --name=ImageViewer --windowed imgViewer.py
 ```
 
 ### macOS 앱 번들 빌드
@@ -179,14 +185,11 @@ pyinstaller --onefile --name=ImageViewer imgViewer.py
 ### Windows 특정 문제
 
 #### 파일 연결이 안 되는 경우
-1. **관리자 권한**: 관리자 권한으로 실행했는지 확인
-2. **레지스트리 권한**: 레지스트리 쓰기 권한 확인
-3. **다른 프로그램**: 다른 프로그램이 이미 등록되어 있는지 확인
-4. **Windows 설정**: Windows 설정 > 앱 > 기본 앱에서 확인
+1. **다른 프로그램**: 다른 프로그램이 이미 기본 앱으로 등록되어 있는지 확인
+2. **Windows 설정**: Windows 설정 > 앱 > 기본 앱에서 확인 및 변경
+3. **재로그인**: 변경이 즉시 반영되지 않으면 탐색기를 재시작하거나 다시 로그인
 
-#### UAC 권한 요청
-- 파일 연결 기능 사용 시 Windows UAC(사용자 계정 컨트롤) 권한 요청이 표시됩니다
-- 이는 정상적인 동작이며, 안전한 레지스트리 수정을 위한 것입니다
+> 파일 연결은 `HKEY_CURRENT_USER`에만 기록하므로 관리자 권한이나 UAC 승인이 필요하지 않습니다.
 
 ## 📊 성능 최적화
 
@@ -198,7 +201,7 @@ self.image_cache = ImageCache(max_size=20, max_memory_mb=300)  # 더 큰 캐시
 
 ### 메모리 사용량 모니터링
 - `Ctrl+M`으로 실시간 메모리 상태 확인
-- 로그 파일에서 메모리 사용량 추적
+- `Help > Debug Info`로 캐시/메모리 상세 정보 확인
 
 ### 타입 힌트 검증
 ```bash
@@ -212,14 +215,13 @@ mypy imgViewer.py
 ## 🔒 보안 정보
 
 ### Windows 레지스트리 수정
-- **안전성**: 레지스트리 수정은 안전하게 설계됨
-- **백업**: 기존 설정을 덮어쓰지 않음
-- **권한**: 관리자 권한이 필요한 안전한 작업
+- **범위**: `HKEY_CURRENT_USER\Software\Classes`에만 기록 (시스템 전역 설정 미변경)
+- **권한**: 관리자 권한 불필요 — 현재 사용자에 한해 적용
+- **복원**: `Unregister as Default Image Viewer`로 언제든 등록 해제 가능
 
 ### 로그 파일
-- **위치**: `~/Desktop/imageviewer_debug.log`
-- **내용**: 디버그 정보, 오류 메시지, 성능 데이터
-- **개인정보**: 민감한 개인정보는 기록되지 않음
+- 디버그 로그는 기본적으로 **비활성화**되어 있어 로그 파일을 생성하지 않습니다.
+- 따라서 디스크에 사용 기록이나 개인정보가 남지 않습니다.
 
 ## 🤝 기여하기
 

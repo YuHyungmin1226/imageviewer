@@ -10,11 +10,21 @@ import gc
 import weakref
 from collections import OrderedDict
 import threading
+import queue
+import re
 from typing import Optional, List, Dict, Tuple, Any
+
+# 드래그 앤 드롭 지원 (선택적 의존성)
+try:
+    from tkinterdnd2 import TkinterDnD, DND_FILES
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
 
 # Windows 레지스트리 관련 import
 if platform.system() == "Windows":
     import winreg
+    import ctypes
     import subprocess
 
 # 상수 정의
@@ -25,6 +35,7 @@ DEFAULT_CANVAS_SIZE = (640, 480)
 MAX_CACHE_SIZE = 15
 MAX_MEMORY_MB = 200
 MAX_RESIZE_CACHE_SIZE = 20
+RESULT_POLL_INTERVAL_MS = 30  # 워커 스레드 결과를 메인 스레드에서 폴링하는 주기
 
 # OS 타입 확인
 is_windows = platform.system() == "Windows"
@@ -37,6 +48,12 @@ def log_debug(message: str) -> None:
     """디버그 메시지를 파일에 기록 (비활성화됨)"""
     # 로그 기능이 비활성화되어 있음
     pass
+
+def natural_sort_key(path: str) -> List[Any]:
+    """파일명을 자연 정렬(예: img2 < img10) 순서로 정렬하기 위한 키 생성"""
+    name = os.path.basename(path).lower()
+    return [int(chunk) if chunk.isdigit() else chunk
+            for chunk in re.split(r"(\d+)", name)]
 
 # 시작 시 로그 (비활성화됨)
 # log_debug("===== 프로그램 시작 =====")
@@ -126,24 +143,35 @@ class WindowsFileAssociation:
             log_debug(f"파일 연결 해제 실패: {extension} - {str(e)}")
             return False
     
+    def notify_shell_change(self) -> None:
+        """탐색기에 파일 연결 변경을 알려 아이콘/연결을 즉시 갱신"""
+        try:
+            # SHCNE_ASSOCCHANGED = 0x08000000, SHCNF_IDLIST = 0x0000
+            ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
+            log_debug("탐색기 연결 변경 알림 전송")
+        except Exception as e:
+            log_debug(f"탐색기 알림 실패: {str(e)}")
+
     def register_all_extensions(self) -> int:
         """모든 지원 확장자를 등록"""
         success_count = 0
         for ext in self.supported_extensions:
             if self.register_file_association(ext):
                 success_count += 1
-        
+
         log_debug(f"전체 파일 연결 등록 완료: {success_count}/{len(self.supported_extensions)}")
+        self.notify_shell_change()
         return success_count
-    
+
     def unregister_all_extensions(self) -> int:
         """모든 지원 확장자의 연결 해제"""
         success_count = 0
         for ext in self.supported_extensions:
             if self.unregister_file_association(ext):
                 success_count += 1
-        
+
         log_debug(f"전체 파일 연결 해제 완료: {success_count}/{len(self.supported_extensions)}")
+        self.notify_shell_change()
         return success_count
     
     def is_registered(self, extension: str) -> bool:
@@ -244,7 +272,11 @@ class ImageCache:
 
 class ImageViewer:
     def __init__(self, initial_file: Optional[str] = None):
-        self.root = tk.Tk()
+        # 드래그 앤 드롭을 지원하려면 TkinterDnD 루트가 필요함
+        if DND_AVAILABLE:
+            self.root = TkinterDnD.Tk()
+        else:
+            self.root = tk.Tk()
         self.root.title("Image Viewer")
         self.root.geometry(DEFAULT_WINDOW_SIZE)  # 기본 창 크기를 더 크게 설정
         self.root.minsize(MIN_WINDOW_SIZE[0], MIN_WINDOW_SIZE[1])  # 최소 창 크기 설정
@@ -252,23 +284,40 @@ class ImageViewer:
         self.images: List[str] = []
         self.current_image_index: int = 0
         self.fullscreen: bool = False
-        
+
         # 메모리 관리 및 캐싱 시스템 초기화
         self.image_cache = ImageCache(max_size=MAX_CACHE_SIZE, max_memory_mb=MAX_MEMORY_MB)
         self.current_photo: Optional[ImageTk.PhotoImage] = None
         self.current_image_path: Optional[str] = None
         self.resize_cache: Dict[str, Image.Image] = {}  # 리사이즈된 이미지 캐시
-        
+        self.resize_cache_lock = threading.Lock()  # 리사이즈 캐시 보호 (워커 스레드 접근)
+
+        # 비동기 로딩 상태
+        self._load_seq = 0  # 최신 로드 요청 식별용 시퀀스 (오래된 결과 무시)
+        self._resize_job: Optional[str] = None  # 리사이즈 디바운스 타이머 ID
+        # 워커 스레드 → 메인 스레드 결과 전달용 큐 (Tk는 스레드 안전하지 않으므로
+        # 워커에서 위젯을 직접 건드리지 않고 큐에 넣은 뒤 메인 스레드가 폴링한다)
+        self._result_queue: "queue.Queue[Tuple[Any, ...]]" = queue.Queue()
+
         # Windows 파일 연결 관리 초기화
         if is_windows:
             self.file_association = WindowsFileAssociation()
-        
+
         # 배경색을 더 밝은 색상으로 변경
         self.canvas = tk.Canvas(self.root, bg="#f0f0f0")
         self.canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
+        # 드래그 앤 드롭 등록
+        if DND_AVAILABLE:
+            self.canvas.drop_target_register(DND_FILES)
+            self.canvas.dnd_bind("<<Drop>>", self.handle_drop)
+            log_debug("드래그 앤 드롭 활성화됨")
+
         self.create_menu()
         self.setup_bindings()
+
+        # 워커 결과 폴링 시작 (메인 스레드에서만 위젯 갱신)
+        self.root.after(RESULT_POLL_INTERVAL_MS, self._poll_load_results)
 
         # macOS의 파일 오픈 이벤트 처리
         if is_macos:
@@ -305,6 +354,19 @@ class ImageViewer:
         log_debug(f"macOS 파일 오픈 이벤트: {args}")
         if args and os.path.isfile(args[0]):
             self.open_file(args[0])
+
+    def handle_drop(self, event: Any) -> None:
+        """드래그 앤 드롭으로 떨어진 파일 처리"""
+        # tkinterdnd2는 경로를 공백으로 구분하고, 공백 포함 경로는 {중괄호}로 감쌈
+        paths = re.findall(r"\{([^}]*)\}|(\S+)", event.data)
+        files = [brace or plain for brace, plain in paths]
+        log_debug(f"드롭된 파일: {files}")
+        for path in files:
+            if os.path.isfile(path) and self.is_image_file(path):
+                self.open_file(path)
+                return
+        if files:
+            self.show_error("지원되는 이미지 파일을 드롭해주세요.")
 
     def create_menu(self) -> None:
         """메뉴 생성"""
@@ -353,12 +415,8 @@ class ImageViewer:
             return
         
         try:
-            # 관리자 권한 확인
-            if not self.check_admin_privileges():
-                messagebox.showwarning("권한 필요", "파일 연결을 등록하려면 관리자 권한이 필요합니다.\n\n관리자 권한으로 프로그램을 다시 실행해주세요.")
-                return
-            
-            # 모든 확장자 등록
+            # HKEY_CURRENT_USER\Software\Classes 에 기록하므로 관리자 권한이 필요 없음
+            # (현재 사용자에 한해 연결되며, 시스템 전역 설정은 변경하지 않음)
             success_count = self.file_association.register_all_extensions()
             
             if success_count > 0:
@@ -382,11 +440,7 @@ class ImageViewer:
             return
         
         try:
-            # 관리자 권한 확인
-            if not self.check_admin_privileges():
-                messagebox.showwarning("권한 필요", "파일 연결을 해제하려면 관리자 권한이 필요합니다.\n\n관리자 권한으로 프로그램을 다시 실행해주세요.")
-                return
-            
+            # HKEY_CURRENT_USER 기록이므로 관리자 권한이 필요 없음
             # 확인 대화상자
             result = messagebox.askyesno("등록 해제", 
                 "ImageViewer의 기본 이미지 뷰어 등록을 해제하시겠습니까?\n\n"
@@ -435,16 +489,6 @@ class ImageViewer:
             error_msg = f"상태 확인 중 오류 발생: {str(e)}"
             log_debug(error_msg)
             messagebox.showerror("오류", error_msg)
-
-    def check_admin_privileges(self) -> bool:
-        """관리자 권한 확인"""
-        try:
-            # 레지스트리 쓰기 권한 테스트
-            test_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, "Software\\ImageViewerTest")
-            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, "Software\\ImageViewerTest")
-            return True
-        except:
-            return False
 
     def select_image(self) -> None:
         """파일 선택 대화상자를 표시하고 선택한 이미지 열기"""
@@ -498,7 +542,7 @@ class ImageViewer:
             
             image_files = [os.path.join(directory, file) for file in all_files
                           if os.path.isfile(os.path.join(directory, file)) and self.is_image_file(os.path.join(directory, file))]
-            image_files.sort()
+            image_files.sort(key=natural_sort_key)
             return image_files
         except Exception as e:
             log_debug(f"디렉토리 열기 오류: {str(e)}")
@@ -537,47 +581,110 @@ class ImageViewer:
             raise
 
     def show_image(self, index: int):
-        """주어진 인덱스의 이미지 표시"""
+        """주어진 인덱스의 이미지를 비동기로 로드하여 표시"""
         if not self.images:
             self.show_error("이미지가 없습니다.")
             return
-            
+        if index >= len(self.images):
+            return
+
+        file_path = self.images[index]
+        log_debug(f"이미지 표시 시도: {file_path}")
+        if not self.is_image_file(file_path):
+            return
+
+        # 캔버스 크기는 메인 스레드에서만 안전하게 읽을 수 있으므로 여기서 확보
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        if canvas_width <= 1 or canvas_height <= 1:
+            canvas_width, canvas_height = DEFAULT_CANVAS_SIZE
+
+        # 최신 요청만 화면에 반영하기 위한 시퀀스 토큰
+        self._load_seq += 1
+        seq = self._load_seq
+
+        self.show_loading_indicator()
+
+        worker = threading.Thread(
+            target=self._load_image_worker,
+            args=(seq, file_path, canvas_width, canvas_height),
+            daemon=True,
+        )
+        worker.start()
+
+    def _load_image_worker(self, seq: int, file_path: str,
+                           canvas_width: int, canvas_height: int) -> None:
+        """백그라운드 스레드: 디스크 로드 및 리사이즈 (Tk 위젯은 건드리지 않음).
+
+        결과는 큐에 넣고, 실제 위젯 갱신은 메인 스레드의 _poll_load_results가 처리한다.
+        """
         try:
-            if index < len(self.images):
-                file_path = self.images[index]
-                log_debug(f"이미지 표시 시도: {file_path}")
-                
-                if self.is_image_file(file_path):
-                    try:
-                        # 이전 이미지 메모리 정리
-                        self.cleanup_current_image()
-                        
-                        # 새 이미지 로드
-                        image = self.load_image_from_cache_or_file(file_path)
-                        log_debug(f"이미지 크기: {image.size}, 형식: {image.format}")
-                        
-                        # 리사이즈된 이미지 생성
-                        resized_image = self.get_resized_image(image, file_path)
-                        log_debug(f"리사이즈된 이미지 크기: {resized_image.size}")
-                        
-                        # PhotoImage 생성 및 표시
-                        self.current_photo = ImageTk.PhotoImage(resized_image)
-                        self.current_image_path = file_path
-                        self.display_image()
-                        self.root.title(f"Image Viewer - {os.path.basename(file_path)}")
-                        log_debug("이미지 표시 성공")
-                        
-                        # 메모리 정리
-                        self.cleanup_memory()
-                        
-                    except (UnidentifiedImageError, OSError) as e:
-                        error_msg = f"이미지를 열 수 없습니다: {file_path}\n{str(e)}"
-                        log_debug(error_msg)
-                        self.show_error(error_msg)
+            image = self.load_image_from_cache_or_file(file_path)
+            resized_image = self.get_resized_image(image, file_path, canvas_width, canvas_height)
+            self._result_queue.put(("ok", seq, file_path, resized_image))
+        except (UnidentifiedImageError, OSError) as e:
+            error_msg = f"이미지를 열 수 없습니다: {file_path}\n{str(e)}"
+            log_debug(error_msg)
+            self._result_queue.put(("err", seq, error_msg))
         except Exception as e:
             error_msg = f"이미지 표시 중 오류 발생: {str(e)}"
             log_debug(error_msg)
-            self.show_error(error_msg)
+            self._result_queue.put(("err", seq, error_msg))
+
+    def _poll_load_results(self) -> None:
+        """메인 스레드: 워커가 큐에 넣은 결과를 주기적으로 처리"""
+        try:
+            while True:
+                item = self._result_queue.get_nowait()
+                kind = item[0]
+                if kind == "ok":
+                    _, seq, file_path, resized_image = item
+                    self._apply_loaded_image(seq, file_path, resized_image)
+                else:
+                    _, seq, message = item
+                    self._apply_load_error(seq, message)
+        except queue.Empty:
+            pass
+        finally:
+            # 다음 폴링 예약 (창이 살아있는 동안 계속).
+            # 종료 후 root가 파괴되면 TclError가 발생하므로 무시한다.
+            try:
+                self.root.after(RESULT_POLL_INTERVAL_MS, self._poll_load_results)
+            except tk.TclError:
+                pass
+
+    def _apply_loaded_image(self, seq: int, file_path: str,
+                            resized_image: Image.Image) -> None:
+        """메인 스레드: 로드 완료된 이미지를 화면에 반영"""
+        if seq != self._load_seq:
+            # 더 최신 요청이 진행 중이므로 이 결과는 폐기
+            log_debug(f"오래된 로드 결과 무시: {file_path}")
+            return
+        self.cleanup_current_image()
+        self.current_photo = ImageTk.PhotoImage(resized_image)
+        self.current_image_path = file_path
+        self.display_image()
+        self.root.title(f"Image Viewer - {os.path.basename(file_path)}")
+        log_debug("이미지 표시 성공")
+        self.cleanup_memory()
+
+    def _apply_load_error(self, seq: int, message: str) -> None:
+        """메인 스레드: 로드 실패 처리"""
+        if seq != self._load_seq:
+            return
+        self.show_error(message)
+
+    def show_loading_indicator(self) -> None:
+        """로딩 중 안내 문구를 캔버스 중앙에 표시"""
+        self.canvas.delete("all")
+        canvas_width = self.canvas.winfo_width()
+        canvas_height = self.canvas.winfo_height()
+        if canvas_width <= 1 or canvas_height <= 1:
+            canvas_width, canvas_height = DEFAULT_CANVAS_SIZE
+        self.canvas.create_text(
+            canvas_width // 2, canvas_height // 2,
+            text="로딩 중...", fill="#888888", font=("", 14),
+        )
 
     def cleanup_current_image(self):
         """현재 이미지 메모리 정리"""
@@ -592,36 +699,32 @@ class ImageViewer:
         gc.collect()
         log_debug("메모리 정리 완료")
 
-    def get_resized_image(self, image: Image.Image, file_path: str) -> Image.Image:
-        """리사이즈된 이미지 가져오기 (캐시 활용)"""
-        canvas_width = self.canvas.winfo_width()
-        canvas_height = self.canvas.winfo_height()
-        
+    def get_resized_image(self, image: Image.Image, file_path: str,
+                          canvas_width: int, canvas_height: int) -> Image.Image:
+        """리사이즈된 이미지 가져오기 (캐시 활용, 워커 스레드에서 호출됨)"""
         if canvas_width <= 1 or canvas_height <= 1:
-            canvas_width = DEFAULT_CANVAS_SIZE[0]
-            canvas_height = DEFAULT_CANVAS_SIZE[1]
-        
+            canvas_width, canvas_height = DEFAULT_CANVAS_SIZE
+
         # 캐시 키 생성
         cache_key = f"{file_path}_{canvas_width}x{canvas_height}"
-        
+
         # 리사이즈 캐시에서 확인
-        if cache_key in self.resize_cache:
-            log_debug(f"리사이즈 캐시 히트: {cache_key}")
-            return self.resize_cache[cache_key]
-        
-        # 새로 리사이즈
+        with self.resize_cache_lock:
+            if cache_key in self.resize_cache:
+                log_debug(f"리사이즈 캐시 히트: {cache_key}")
+                return self.resize_cache[cache_key]
+
+        # 새로 리사이즈 (락 밖에서 수행 — 시간이 오래 걸릴 수 있음)
         resized_image = self.resize_image(image, canvas_width, canvas_height)
-        
-        # 리사이즈 캐시 크기 제한 (최대 20개)
-        if len(self.resize_cache) >= MAX_RESIZE_CACHE_SIZE:
-            # 가장 오래된 항목 제거
-            oldest_key = next(iter(self.resize_cache))
-            del self.resize_cache[oldest_key]
-        
-        # 캐시에 저장
-        self.resize_cache[cache_key] = resized_image
-        log_debug(f"리사이즈 캐시에 추가: {cache_key}")
-        
+
+        with self.resize_cache_lock:
+            # 리사이즈 캐시 크기 제한
+            if len(self.resize_cache) >= MAX_RESIZE_CACHE_SIZE and self.resize_cache:
+                oldest_key = next(iter(self.resize_cache))
+                del self.resize_cache[oldest_key]
+            self.resize_cache[cache_key] = resized_image
+            log_debug(f"리사이즈 캐시에 추가: {cache_key}")
+
         return resized_image
 
     def resize_image(self, image: Image.Image, canvas_width: int, canvas_height: int) -> Image.Image:
@@ -669,11 +772,24 @@ class ImageViewer:
             self.show_image(self.current_image_index)
 
     def on_window_resize(self, event: tk.Event) -> None:
-        """윈도우 크기 변경 시 이미지 리사이즈"""
-        if hasattr(self, 'current_photo') and self.current_photo:
-            # 리사이즈 캐시 클리어 (창 크기가 변경되었으므로)
+        """윈도우 크기 변경 시 이미지 리사이즈 (디바운싱 적용)"""
+        # <Configure> 이벤트는 드래그 중 매우 빈번하게 발생하므로,
+        # 마지막 이벤트로부터 일정 시간이 지난 뒤 한 번만 리사이즈한다.
+        if not (hasattr(self, 'current_photo') and self.current_photo):
+            return
+        # 캔버스 위젯이 아닌 이벤트는 무시 (메뉴/자식 위젯 Configure 노이즈 방지)
+        if event.widget is not self.root:
+            return
+        if self._resize_job is not None:
+            self.root.after_cancel(self._resize_job)
+        self._resize_job = self.root.after(150, self._do_resize)
+
+    def _do_resize(self) -> None:
+        """디바운스 후 실제 리사이즈 수행"""
+        self._resize_job = None
+        with self.resize_cache_lock:
             self.resize_cache.clear()
-            self.show_image(self.current_image_index)
+        self.show_image(self.current_image_index)
 
     def toggle_fullscreen(self) -> None:
         """전체 화면 전환"""
@@ -690,10 +806,15 @@ class ImageViewer:
             self.root.geometry(DEFAULT_WINDOW_SIZE)  # 전체화면 해제 시 기본 크기 변경
             log_debug("일반 모드: 메뉴바 복원")
 
+    def _clear_resize_cache(self) -> None:
+        """리사이즈 캐시를 스레드 안전하게 비움"""
+        with self.resize_cache_lock:
+            self.resize_cache.clear()
+
     def clear_cache(self) -> None:
         """캐시 정리"""
         self.image_cache.clear()
-        self.resize_cache.clear()
+        self._clear_resize_cache()
         self.cleanup_memory()
         log_debug("모든 캐시 정리 완료")
         messagebox.showinfo("캐시 정리", "모든 캐시가 정리되었습니다.")
@@ -715,7 +836,7 @@ class ImageViewer:
         # 메모리 정리
         self.cleanup_current_image()
         self.image_cache.clear()
-        self.resize_cache.clear()
+        self._clear_resize_cache()
         self.cleanup_memory()
         self.root.quit()
 
@@ -740,7 +861,7 @@ class ImageViewer:
 
                 # 캐시에서도 제거
                 self.image_cache.clear() # 전체 캐시를 비우는 것이 가장 안전
-                self.resize_cache.clear()
+                self._clear_resize_cache()
 
                 # 다음 이미지 표시 또는 빈 화면
                 if self.images:

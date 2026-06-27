@@ -39,6 +39,8 @@ def build_imgviewer():
         shutil.rmtree(build_dir)
     
     # PyInstaller 명령어 구성
+    # 참고: 파일 연결은 HKEY_CURRENT_USER에 기록하므로 관리자 권한이 필요 없음
+    #       (--uac-admin 제거 → 실행 시 불필요한 UAC 프롬프트 방지)
     cmd = [
         "pyinstaller",
         "--onefile",                    # 단일 실행 파일 생성
@@ -48,9 +50,17 @@ def build_imgviewer():
         "--workpath", str(build_dir),   # 작업 디렉토리
         "--clean",                      # 빌드 전 정리
         "--windowed",                   # GUI 애플리케이션으로 설정
-        "--uac-admin",                  # 관리자 권한 요청
-        str(imgviewer_path)             # 빌드할 Python 파일
     ]
+
+    # 드래그 앤 드롭 의존성(tkinterdnd2)이 설치되어 있으면 함께 번들링
+    try:
+        import tkinterdnd2  # noqa: F401
+        cmd += ["--collect-all", "tkinterdnd2"]
+        print_with_color("tkinterdnd2 감지됨 → 드래그 앤 드롭 포함", 36)
+    except ImportError:
+        print_with_color("tkinterdnd2 없음 → 드래그 앤 드롭 제외", 33)
+
+    cmd.append(str(imgviewer_path))     # 빌드할 Python 파일
     
     print_with_color("PyInstaller 명령어:", 36)
     print(" ".join(cmd))
