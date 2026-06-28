@@ -82,7 +82,7 @@ class WindowsFileAssociation:
             return sys.executable
         else:
             # Python 스크립트
-            return sys.executable + ' "' + os.path.abspath(__file__) + '"'
+            return os.path.abspath(__file__)
     
     def register_file_association(self, extension: str) -> bool:
         """특정 확장자를 ImageViewer와 연결"""
@@ -104,7 +104,10 @@ class WindowsFileAssociation:
             
             # 명령어 설정
             exe_path = self.get_executable_path()
-            command = f'"{exe_path}" "%1"'
+            if hasattr(sys, 'frozen') and getattr(sys, 'frozen'):
+                command = f'"{exe_path}" "%1"'
+            else:
+                command = f'"{sys.executable}" "{exe_path}" "%1"'
             winreg.SetValue(command_key, "", winreg.REG_SZ, command)
             
             # 키 닫기
@@ -132,7 +135,7 @@ class WindowsFileAssociation:
             
             # 앱별 확장자 키 삭제
             try:
-                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, f"Software\\Classes\\{self.app_name}{extension}")
+                self._delete_registry_tree(winreg.HKEY_CURRENT_USER, f"Software\\Classes\\{self.app_name}{extension}")
             except FileNotFoundError:
                 pass
             
@@ -142,6 +145,21 @@ class WindowsFileAssociation:
         except Exception as e:
             log_debug(f"파일 연결 해제 실패: {extension} - {str(e)}")
             return False
+
+    def _delete_registry_tree(self, root: Any, sub_key: str) -> None:
+        """Delete a registry key and any child keys."""
+        try:
+            with winreg.OpenKey(root, sub_key, 0, winreg.KEY_READ | winreg.KEY_WRITE) as key:
+                while True:
+                    try:
+                        child = winreg.EnumKey(key, 0)
+                    except OSError:
+                        break
+                    self._delete_registry_tree(root, f"{sub_key}\\{child}")
+        except FileNotFoundError:
+            return
+
+        winreg.DeleteKey(root, sub_key)
     
     def notify_shell_change(self) -> None:
         """탐색기에 파일 연결 변경을 알려 아이콘/연결을 즉시 갱신"""
@@ -331,7 +349,7 @@ class ImageViewer:
         log_debug(f"초기 파일: {initial_file}")
         if initial_file and os.path.isfile(initial_file):
             log_debug(f"파일 열기 시도: {initial_file}")
-            self.open_file(initial_file)
+            self.root.after_idle(lambda path=initial_file: self.open_file(path))
 
         # 메인 윈도우 닫기 이벤트 처리
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
@@ -506,9 +524,20 @@ class ImageViewer:
             log_debug(f"사용자 선택 파일: {file_path}")
             self.open_file(file_path)
 
+    def _cancel_pending_resize(self) -> None:
+        """Cancel a resize job that was queued by an older window event."""
+        if self._resize_job is None:
+            return
+        try:
+            self.root.after_cancel(self._resize_job)
+        except tk.TclError:
+            pass
+        self._resize_job = None
+
     def open_file(self, file_path: str):
         """파일 경로를 받아 이미지를 열고 표시합니다."""
         log_debug(f"open_file 호출됨: {file_path}")
+        self._cancel_pending_resize()
         
         # 파일 존재 확인
         if not os.path.exists(file_path):
@@ -572,7 +601,8 @@ class ImageViewer:
         
         # 파일에서 로드
         try:
-            image = Image.open(file_path)
+            with Image.open(file_path) as opened_image:
+                image = opened_image.copy()
             # 캐시에 저장
             self.image_cache.put(file_path, image)
             return image
@@ -585,7 +615,7 @@ class ImageViewer:
         if not self.images:
             self.show_error("이미지가 없습니다.")
             return
-        if index >= len(self.images):
+        if index < 0 or index >= len(self.images):
             return
 
         file_path = self.images[index]
@@ -738,7 +768,9 @@ class ImageViewer:
         else:
             new_height = canvas_height
             new_width = int(canvas_height * image_ratio)
-            
+
+        new_width = max(1, new_width)
+        new_height = max(1, new_height)
         return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
     def display_image(self) -> None:
@@ -781,7 +813,7 @@ class ImageViewer:
         if event.widget is not self.root:
             return
         if self._resize_job is not None:
-            self.root.after_cancel(self._resize_job)
+            self._cancel_pending_resize()
         self._resize_job = self.root.after(150, self._do_resize)
 
     def _do_resize(self) -> None:
@@ -833,12 +865,17 @@ class ImageViewer:
     def quit(self) -> None:
         """프로그램 종료"""
         log_debug("프로그램 종료")
+        self._cancel_pending_resize()
         # 메모리 정리
         self.cleanup_current_image()
         self.image_cache.clear()
         self._clear_resize_cache()
         self.cleanup_memory()
-        self.root.quit()
+        try:
+            self.root.quit()
+            self.root.destroy()
+        except tk.TclError:
+            pass
 
     def delete_current_image(self) -> None:
         """현재 보고 있는 이미지를 삭제합니다."""
