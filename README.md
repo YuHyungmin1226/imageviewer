@@ -94,6 +94,9 @@ python imgViewer.py "path/to/image.jpg"
 | `Space/ESC` | 프로그램 종료 |
 | `Ctrl+R` | 캐시 정리 |
 | `Ctrl+M` | 메모리 정보 표시 |
+| `Delete` / `Backspace` | 현재 이미지 파일 삭제 (확인 후 진행, 되돌릴 수 없음) |
+
+> macOS 노트북 키보드에는 순방향 `Delete` 키가 없는 경우가 많아 `Backspace`(⌫)로도 삭제할 수 있습니다.
 
 ### Windows 파일 연결 설정
 
@@ -155,6 +158,10 @@ pyinstaller --onefile --noconsole --name=ImageViewer --windowed imgViewer.py
 
 ### macOS 앱 번들 빌드
 ```bash
+# 자동 빌드 (build/dist 폴더 정리 및 .app 생성까지 처리)
+python build_imgviewer_mac.py
+
+# 또는 수동 빌드
 pyinstaller --windowed --name=ImageViewer imgViewer.py
 ```
 
@@ -190,6 +197,14 @@ pyinstaller --onefile --name=ImageViewer imgViewer.py
 3. **재로그인**: 변경이 즉시 반영되지 않으면 탐색기를 재시작하거나 다시 로그인
 
 > 파일 연결은 `HKEY_CURRENT_USER`에만 기록하므로 관리자 권한이나 UAC 승인이 필요하지 않습니다.
+
+### macOS 특정 문제
+
+#### 전체 화면에서 메뉴 바가 계속 보이는 경우
+- macOS는 애플리케이션마다 별도의 메뉴 바가 아니라 화면 상단에 하나의 전역 메뉴 바를 사용합니다. Tk/Python 버전에 따라 전체 화면 전환 시 메뉴 바가 자동으로 숨겨지지 않을 수 있으며, 이는 알려진 Tkinter 제약사항으로 프로그램 동작에는 영향이 없습니다.
+
+#### `Delete` 키로 이미지가 삭제되지 않는 경우
+- 대부분의 맥북 키보드에는 순방향 삭제 키가 없습니다. `Backspace`(⌫) 키를 사용하면 동일하게 현재 이미지를 삭제할 수 있습니다.
 
 ## 📊 성능 최적화
 

@@ -94,14 +94,8 @@ def build_imgviewer():
                 print("2. 명령줄에서 실행: ImageViewer.exe [이미지파일경로]")
                 print("3. 이미지 파일을 드래그 앤 드롭으로 열기")
                 print("4. 기본 프로그램 등록: Tools > Register as Default Image Viewer")
-                
-                # 관리자 권한 안내
-                print_with_color("\n=== 관리자 권한 ===", 33)
-                print("파일 연결 기능을 사용하려면 관리자 권한으로 실행하세요:")
-                print("1. ImageViewer.exe를 우클릭")
-                print("2. '관리자 권한으로 실행' 선택")
-                print("3. Tools > Register as Default Image Viewer 실행")
-                
+                print("   (HKEY_CURRENT_USER에만 기록되므로 관리자 권한 없이 바로 사용 가능)")
+
             else:
                 print_with_color("오류: 실행 파일이 생성되지 않았습니다.", 31)
                 return False

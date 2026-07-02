@@ -366,6 +366,9 @@ class ImageViewer:
         self.root.bind("<Control-r>", lambda e: self.clear_cache())  # Ctrl+R로 캐시 정리
         self.root.bind("<Control-m>", lambda e: self.show_memory_info())  # Ctrl+M으로 메모리 정보
         self.root.bind("<Delete>", lambda e: self.delete_current_image())  # Delete 키로 현재 이미지 삭제
+        # macOS 노트북 키보드의 기본 삭제 키는 keysym이 "Delete"가 아니라 "BackSpace"로 전달됨
+        # (순방향 삭제인 진짜 "Delete"는 Fn+Delete가 필요해 대부분의 맥 키보드에는 없음)
+        self.root.bind("<BackSpace>", lambda e: self.delete_current_image())
     
     def handle_open_document(self, *args: Any) -> None:
         """macOS의 파일 오픈 이벤트 처리"""
@@ -586,9 +589,17 @@ class ImageViewer:
 
     def get_current_image_index(self, file_path: str) -> int:
         """주어진 파일 경로의 이미지 인덱스 반환"""
-        file_path = os.path.abspath(file_path).lower()
+        target = os.path.abspath(file_path)
+        # 대소문자를 구분하는 파일시스템(Linux, 케이스 센서티브 APFS 등)에서
+        # 서로 다른 파일이 소문자 비교만으로 잘못 일치하지 않도록 정확히 일치하는 경로를 먼저 찾는다
         for i, image_path in enumerate(self.images):
-            if os.path.abspath(image_path).lower() == file_path:
+            if os.path.abspath(image_path) == target:
+                return i
+        # 정확히 일치하는 항목이 없으면 대소문자를 구분하지 않는 파일시스템(Windows, 기본 macOS)을 위해
+        # 대소문자 무시 비교로 한 번 더 시도
+        target_lower = target.lower()
+        for i, image_path in enumerate(self.images):
+            if os.path.abspath(image_path).lower() == target_lower:
                 return i
         return 0
 
