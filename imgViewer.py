@@ -21,6 +21,13 @@ try:
 except ImportError:
     DND_AVAILABLE = False
 
+# PyInstaller로 번들된 macOS 앱에서는 TkinterDnD.Tk() 루트를 사용할 경우
+# 캔버스 이미지가 예외 없이 조용히 렌더링되지 않는 문제가 확인되어(로드/표시 로직은
+# 정상 완료되지만 화면에 그려지지 않음), 이 조합에서는 드래그 앤 드롭을 비활성화하고
+# 일반 tk.Tk() 루트를 사용한다.
+if DND_AVAILABLE and platform.system() == "Darwin" and getattr(sys, "frozen", False):
+    DND_AVAILABLE = False
+
 # Windows 레지스트리 관련 import
 if platform.system() == "Windows":
     import winreg
@@ -369,7 +376,29 @@ class ImageViewer:
         # macOS 노트북 키보드의 기본 삭제 키는 keysym이 "Delete"가 아니라 "BackSpace"로 전달됨
         # (순방향 삭제인 진짜 "Delete"는 Fn+Delete가 필요해 대부분의 맥 키보드에는 없음)
         self.root.bind("<BackSpace>", lambda e: self.delete_current_image())
-    
+        # macOS에서는 단축키의 기본 변형 키가 Ctrl이 아니라 Command임.
+        # 일부 macOS 환경(키보드 입력 소스 설정에 따라)에서는 Tk-Aqua가 Command/Control 조합의
+        # keysym을 올바르게 해석하지 못해(keysym이 "??"로 나옴) <Command-o> 같은 keysym 기반
+        # 바인딩이 전혀 발동하지 않는 문제가 실측으로 확인됨. keysym 대신 event.char와 상태
+        # 비트마스크로 직접 판별해 이 버그를 우회한다.
+        if is_macos:
+            self.root.bind("<KeyPress>", self._handle_macos_command_shortcut, add="+")
+
+    # Tk-Aqua에서 Command 모디파이어에 해당하는 state 비트마스크
+    _MACOS_COMMAND_MASK = 0x8
+
+    def _handle_macos_command_shortcut(self, event: tk.Event) -> None:
+        """macOS 전용 Command 단축키 처리 (keysym 대신 char로 판별)"""
+        if not (event.state & self._MACOS_COMMAND_MASK):
+            return
+        ch = (event.char or "").lower()
+        if ch == "o":
+            self.select_image()
+        elif ch == "r":
+            self.clear_cache()
+        elif ch == "m":
+            self.show_memory_info()
+
     def handle_open_document(self, *args: Any) -> None:
         """macOS의 파일 오픈 이벤트 처리"""
         log_debug(f"macOS 파일 오픈 이벤트: {args}")
@@ -394,25 +423,28 @@ class ImageViewer:
         self.menubar = tk.Menu(self.root)
         self.root.config(menu=self.menubar)
 
+        # macOS는 Ctrl이 아니라 Command가 관례적인 변형 키이므로 메뉴 표시 텍스트를 구분
+        mod_label = "Cmd" if is_macos else "Ctrl"
+
         # 파일 메뉴
         file_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_command(label="Open Image...", command=self.select_image, accelerator="Ctrl+O")
+        file_menu.add_command(label="Open Image...", command=self.select_image, accelerator=f"{mod_label}+O")
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.quit, accelerator="Esc / Space")
-        
+
         # 보기 메뉴
         view_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="View", menu=view_menu)
         view_menu.add_command(label="Toggle Fullscreen", command=self.toggle_fullscreen, accelerator="Enter")
         view_menu.add_command(label="Next Image", command=self.show_next_image, accelerator="Right")
         view_menu.add_command(label="Previous Image", command=self.show_previous_image, accelerator="Left")
-        
+
         # 도구 메뉴
         tools_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label="Tools", menu=tools_menu)
-        tools_menu.add_command(label="Clear Cache", command=self.clear_cache, accelerator="Ctrl+R")
-        tools_menu.add_command(label="Memory Info", command=self.show_memory_info, accelerator="Ctrl+M")
+        tools_menu.add_command(label="Clear Cache", command=self.clear_cache, accelerator=f"{mod_label}+R")
+        tools_menu.add_command(label="Memory Info", command=self.show_memory_info, accelerator=f"{mod_label}+M")
         
         # Windows에서만 파일 연결 메뉴 추가
         if is_windows:
