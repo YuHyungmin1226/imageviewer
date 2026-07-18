@@ -5,7 +5,6 @@ imgViewer.py 빌드 스크립트
 이 스크립트는 imgViewer.py를 독립 실행형 exe 파일로 빌드합니다.
 """
 
-import os
 import sys
 import subprocess
 import shutil
@@ -29,27 +28,32 @@ def build_imgviewer():
     print_with_color("=== imgViewer 빌드 시작 ===", 33)
     print_with_color(f"빌드 대상: {imgviewer_path}", 36)
     
-    # 기존 빌드 파일 정리
-    if dist_dir.exists():
-        print_with_color("기존 dist 폴더 정리 중...", 33)
-        shutil.rmtree(dist_dir)
-    
-    if build_dir.exists():
-        print_with_color("기존 build 폴더 정리 중...", 33)
-        shutil.rmtree(build_dir)
-    
+    # 기존 빌드 파일 정리 (이전 실행 파일이 실행 중이거나 백신이 스캔 중이면
+    # PermissionError가 발생할 수 있어 안내 메시지와 함께 처리)
+    try:
+        if dist_dir.exists():
+            print_with_color("기존 dist 폴더 정리 중...", 33)
+            shutil.rmtree(dist_dir)
+
+        if build_dir.exists():
+            print_with_color("기존 build 폴더 정리 중...", 33)
+            shutil.rmtree(build_dir)
+    except OSError as e:
+        print_with_color(f"이전 빌드 파일을 삭제할 수 없습니다: {e}", 31)
+        print_with_color("ImageViewer.exe가 실행 중이면 종료 후 다시 시도하세요.", 31)
+        return False
+
     # PyInstaller 명령어 구성
     # 참고: 파일 연결은 HKEY_CURRENT_USER에 기록하므로 관리자 권한이 필요 없음
     #       (--uac-admin 제거 → 실행 시 불필요한 UAC 프롬프트 방지)
     cmd = [
         "pyinstaller",
         "--onefile",                    # 단일 실행 파일 생성
-        "--noconsole",                  # 콘솔 창 숨기기
+        "--windowed",                   # GUI 애플리케이션으로 설정 (콘솔 숨김, --noconsole과 동일 옵션)
         "--name=ImageViewer",           # 실행 파일 이름
         "--distpath", str(dist_dir),    # 출력 디렉토리
         "--workpath", str(build_dir),   # 작업 디렉토리
         "--clean",                      # 빌드 전 정리
-        "--windowed",                   # GUI 애플리케이션으로 설정
     ]
 
     # 드래그 앤 드롭 의존성(tkinterdnd2)이 설치되어 있으면 함께 번들링
@@ -69,7 +73,7 @@ def build_imgviewer():
     try:
         # PyInstaller 실행
         print_with_color("빌드 진행 중...", 33)
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace')
         
         if result.returncode == 0:
             print_with_color("=== 빌드 성공! ===", 32)

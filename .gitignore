@@ -140,6 +140,9 @@ Desktop/imageviewer_debug.log
 *.deb
 *.rpm
 *.msi
+# release/ 폴더는 배포용 산출물을 의도적으로 커밋해두는 곳이라 위 패턴에서 예외 처리
+# (없으면 release/ 안에 새로 생기는 파일마다 매번 git add -f가 필요해짐)
+!/release/**
 
 # IDE files
 .vscode/

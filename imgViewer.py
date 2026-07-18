@@ -62,6 +62,19 @@ def natural_sort_key(path: str) -> List[Any]:
     return [int(chunk) if chunk.isdigit() else chunk
             for chunk in re.split(r"(\d+)", name)]
 
+def file_signature(path: str) -> Optional[Tuple[float, int]]:
+    """파일의 mtime+size로 캐시 무효화 판단용 서명 생성.
+
+    이미지/리사이즈 캐시가 파일 경로만으로 키를 구성하면, 외부에서 같은 경로의
+    파일이 교체/수정돼도 예전 내용을 계속 보여주게 된다. 캐시 키에 이 서명을
+    포함시켜 파일이 바뀌면 자동으로 캐시 미스가 나도록 한다.
+    """
+    try:
+        st = os.stat(path)
+        return (st.st_mtime, st.st_size)
+    except OSError:
+        return None
+
 # 시작 시 로그 (비활성화됨)
 # log_debug("===== 프로그램 시작 =====")
 # log_debug(f"OS: {platform.system()}")
@@ -309,6 +322,7 @@ class ImageViewer:
         self.images: List[str] = []
         self.current_image_index: int = 0
         self.fullscreen: bool = False
+        self._pre_fullscreen_geometry: Optional[str] = None
 
         # 메모리 관리 및 캐싱 시스템 초기화
         self.image_cache = ImageCache(max_size=MAX_CACHE_SIZE, max_memory_mb=MAX_MEMORY_MB)
@@ -384,7 +398,9 @@ class ImageViewer:
         if is_macos:
             self.root.bind("<KeyPress>", self._handle_macos_command_shortcut, add="+")
 
-    # Tk-Aqua에서 Command 모디파이어에 해당하는 state 비트마스크
+    # Tk-Aqua에서 Command 모디파이어에 해당하는 state 비트마스크.
+    # 이 값은 "관찰치"가 아니라 Tk의 Cocoa 포트 소스(macosx/tkMacOSXKeyEvent.c)에서
+    # NSCommandKeyMask를 표준 X11 Mod1Mask(1<<3=0x8)로 매핑하는 코드에 근거한 안정적 상수다.
     _MACOS_COMMAND_MASK = 0x8
 
     def _handle_macos_command_shortcut(self, event: tk.Event) -> None:
@@ -571,6 +587,9 @@ class ImageViewer:
 
     def open_file(self, file_path: str):
         """파일 경로를 받아 이미지를 열고 표시합니다."""
+        # 디렉토리 구분자가 없는 상대경로(예: "photo.jpg")를 그대로 os.path.dirname에 넘기면
+        # 빈 문자열이 되어 os.listdir("")가 예외를 던지므로, 절대경로로 정규화해둔다.
+        file_path = os.path.abspath(file_path)
         log_debug(f"open_file 호출됨: {file_path}")
         self._cancel_pending_resize()
         
@@ -635,19 +654,23 @@ class ImageViewer:
                 return i
         return 0
 
-    def load_image_from_cache_or_file(self, file_path: str) -> Image.Image:
+    def load_image_from_cache_or_file(self, file_path: str,
+                                       signature: Optional[Tuple[float, int]]) -> Image.Image:
         """캐시에서 이미지를 가져오거나 파일에서 로드"""
+        # 파일 서명(mtime+size)을 키에 포함시켜, 외부에서 파일이 교체되면 자동으로 캐시 미스가 나게 한다
+        cache_key = f"{file_path}::{signature}"
+
         # 캐시에서 먼저 확인
-        cached_image = self.image_cache.get(file_path)
+        cached_image = self.image_cache.get(cache_key)
         if cached_image:
             return cached_image
-        
+
         # 파일에서 로드
         try:
             with Image.open(file_path) as opened_image:
                 image = opened_image.copy()
             # 캐시에 저장
-            self.image_cache.put(file_path, image)
+            self.image_cache.put(cache_key, image)
             return image
         except Exception as e:
             log_debug(f"이미지 로드 실패: {file_path} - {str(e)}")
@@ -678,7 +701,8 @@ class ImageViewer:
 
         # 리사이즈 캐시에 이미 있으면(예: 뒤로/앞으로 이동) 스레드를 거치지 않고
         # 즉시 반영하여 "로딩 중..." 깜빡임 없이 표시한다.
-        cache_key = self._resize_cache_key(file_path, canvas_width, canvas_height)
+        signature = file_signature(file_path)
+        cache_key = self._resize_cache_key(file_path, canvas_width, canvas_height, signature)
         with self.resize_cache_lock:
             cached_resized = self.resize_cache.get(cache_key)
         if cached_resized is not None:
@@ -701,8 +725,9 @@ class ImageViewer:
         결과는 큐에 넣고, 실제 위젯 갱신은 메인 스레드의 _poll_load_results가 처리한다.
         """
         try:
-            image = self.load_image_from_cache_or_file(file_path)
-            resized_image = self.get_resized_image(image, file_path, canvas_width, canvas_height)
+            signature = file_signature(file_path)
+            image = self.load_image_from_cache_or_file(file_path, signature)
+            resized_image = self.get_resized_image(image, file_path, canvas_width, canvas_height, signature)
             self._result_queue.put(("ok", seq, file_path, resized_image))
         except (UnidentifiedImageError, OSError) as e:
             error_msg = f"이미지를 열 수 없습니다: {file_path}\n{str(e)}"
@@ -781,18 +806,20 @@ class ImageViewer:
         gc.collect()
         log_debug("메모리 정리 완료")
 
-    def _resize_cache_key(self, file_path: str, canvas_width: int, canvas_height: int) -> str:
-        """리사이즈 캐시 키 생성 (파일 경로 + 캔버스 크기)"""
-        return f"{file_path}_{canvas_width}x{canvas_height}"
+    def _resize_cache_key(self, file_path: str, canvas_width: int, canvas_height: int,
+                          signature: Optional[Tuple[float, int]]) -> str:
+        """리사이즈 캐시 키 생성 (파일 경로 + 파일 서명 + 캔버스 크기)"""
+        return f"{file_path}_{signature}_{canvas_width}x{canvas_height}"
 
     def get_resized_image(self, image: Image.Image, file_path: str,
-                          canvas_width: int, canvas_height: int) -> Image.Image:
+                          canvas_width: int, canvas_height: int,
+                          signature: Optional[Tuple[float, int]]) -> Image.Image:
         """리사이즈된 이미지 가져오기 (캐시 활용, 워커 스레드에서 호출됨)"""
         if canvas_width <= 1 or canvas_height <= 1:
             canvas_width, canvas_height = DEFAULT_CANVAS_SIZE
 
         # 캐시 키 생성
-        cache_key = self._resize_cache_key(file_path, canvas_width, canvas_height)
+        cache_key = self._resize_cache_key(file_path, canvas_width, canvas_height, signature)
 
         # 리사이즈 캐시에서 확인
         with self.resize_cache_lock:
@@ -882,16 +909,20 @@ class ImageViewer:
     def toggle_fullscreen(self) -> None:
         """전체 화면 전환"""
         self.fullscreen = not self.fullscreen
-        self.root.attributes("-fullscreen", self.fullscreen)
-        
+
         if self.fullscreen:
+            # 전체 화면 진입 전 창 크기를 기억해뒀다가 해제 시 복원한다
+            self._pre_fullscreen_geometry = self.root.geometry()
+            self.root.attributes("-fullscreen", self.fullscreen)
             # 전체 화면에서 메뉴바 숨기기
             self.root.config(menu="")
             log_debug("전체 화면 모드: 메뉴바 숨김")
         else:
+            self.root.attributes("-fullscreen", self.fullscreen)
             # 일반 모드에서 메뉴바 복원
             self.root.config(menu=self.menubar)
-            self.root.geometry(DEFAULT_WINDOW_SIZE)  # 전체화면 해제 시 기본 크기 변경
+            # 전체화면 진입 전 크기로 복원 (기록이 없으면 기본 크기로)
+            self.root.geometry(self._pre_fullscreen_geometry or DEFAULT_WINDOW_SIZE)
             log_debug("일반 모드: 메뉴바 복원")
 
     def _clear_resize_cache(self) -> None:
@@ -966,6 +997,9 @@ class ImageViewer:
                         self.current_image_index = 0
                     self.show_image(self.current_image_index)
                 else:
+                    # 대기 중인 리사이즈 타이머가 만료되며 빈 목록에 show_image를 호출해
+                    # 스퓨리어스한 오류창이 뜨는 것을 방지
+                    self._cancel_pending_resize()
                     self.canvas.delete("all")
                     self.root.title("Image Viewer")
                     self.current_photo = None

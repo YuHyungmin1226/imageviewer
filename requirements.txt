@@ -1,7 +1,8 @@
 # ImageViewer 의존성 패키지
 
 # 필수 패키지
-Pillow>=9.0.0
+# 9.1.0 미만에는 코드가 사용하는 Image.Resampling.LANCZOS가 없어 AttributeError가 발생함
+Pillow>=9.1.0
 
 # 드래그 앤 드롭 지원 (선택사항)
 # 설치하지 않아도 동작하며, 설치 시 창에 이미지 파일을 끌어다 놓을 수 있음
