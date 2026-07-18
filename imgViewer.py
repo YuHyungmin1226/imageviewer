@@ -644,6 +644,15 @@ class ImageViewer:
         self._load_seq += 1
         seq = self._load_seq
 
+        # 리사이즈 캐시에 이미 있으면(예: 뒤로/앞으로 이동) 스레드를 거치지 않고
+        # 즉시 반영하여 "로딩 중..." 깜빡임 없이 표시한다.
+        cache_key = self._resize_cache_key(file_path, canvas_width, canvas_height)
+        with self.resize_cache_lock:
+            cached_resized = self.resize_cache.get(cache_key)
+        if cached_resized is not None:
+            self._apply_loaded_image(seq, file_path, cached_resized)
+            return
+
         self.show_loading_indicator()
 
         worker = threading.Thread(
@@ -740,6 +749,10 @@ class ImageViewer:
         gc.collect()
         log_debug("메모리 정리 완료")
 
+    def _resize_cache_key(self, file_path: str, canvas_width: int, canvas_height: int) -> str:
+        """리사이즈 캐시 키 생성 (파일 경로 + 캔버스 크기)"""
+        return f"{file_path}_{canvas_width}x{canvas_height}"
+
     def get_resized_image(self, image: Image.Image, file_path: str,
                           canvas_width: int, canvas_height: int) -> Image.Image:
         """리사이즈된 이미지 가져오기 (캐시 활용, 워커 스레드에서 호출됨)"""
@@ -747,7 +760,7 @@ class ImageViewer:
             canvas_width, canvas_height = DEFAULT_CANVAS_SIZE
 
         # 캐시 키 생성
-        cache_key = f"{file_path}_{canvas_width}x{canvas_height}"
+        cache_key = self._resize_cache_key(file_path, canvas_width, canvas_height)
 
         # 리사이즈 캐시에서 확인
         with self.resize_cache_lock:
