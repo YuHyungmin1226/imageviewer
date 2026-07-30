@@ -162,13 +162,17 @@ pyinstaller --onefile --noconsole --name=ImageViewer --windowed imgViewer.py
 python build_imgviewer_mac.py
 
 # 또는 수동 빌드
-pyinstaller --windowed --name=ImageViewer imgViewer.py
+pyinstaller --windowed --name=ImageViewer --hidden-import=PIL._tkinter_finder imgViewer.py
 ```
 
 ### Linux 실행 파일 빌드
 ```bash
-pyinstaller --onefile --name=ImageViewer imgViewer.py
+# PyInstaller가 PIL.ImageTk의 동적 임포트(PIL._tkinter_finder)를 자동으로 감지하지 못해,
+# --hidden-import 없이 빌드하면 실행 파일에서 이미지 표시 시 오류가 발생함
+pyinstaller --onefile --name=ImageViewer --hidden-import=PIL._tkinter_finder imgViewer.py
 ```
+
+> 리눅스에서 소스 실행 시 `python3-tk`(tkinter)와 `python3-pil.imagetk`(ImageTk) 패키지가 필요할 수 있습니다 (Debian/Ubuntu 기준: `sudo apt install python3-tk python3-pil.imagetk`).
 
 ## 🐛 문제 해결
 

@@ -8,7 +8,11 @@ imgViewer.py 빌드 스크립트
 import sys
 import subprocess
 import shutil
+import platform
 from pathlib import Path
+
+IS_WINDOWS = platform.system() == "Windows"
+EXE_NAME = "ImageViewer.exe" if IS_WINDOWS else "ImageViewer"
 
 def print_with_color(message, color_code=36):
     """색상이 있는 메시지 출력"""
@@ -40,7 +44,7 @@ def build_imgviewer():
             shutil.rmtree(build_dir)
     except OSError as e:
         print_with_color(f"이전 빌드 파일을 삭제할 수 없습니다: {e}", 31)
-        print_with_color("ImageViewer.exe가 실행 중이면 종료 후 다시 시도하세요.", 31)
+        print_with_color(f"{EXE_NAME}가 실행 중이면 종료 후 다시 시도하세요.", 31)
         return False
 
     # PyInstaller 명령어 구성
@@ -54,6 +58,10 @@ def build_imgviewer():
         "--distpath", str(dist_dir),    # 출력 디렉토리
         "--workpath", str(build_dir),   # 작업 디렉토리
         "--clean",                      # 빌드 전 정리
+        # PyInstaller가 PIL.ImageTk의 동적 임포트(PIL._tkinter_finder)를 자동으로
+        # 감지하지 못해, 이 옵션 없이 빌드하면 실행 파일에서 이미지 표시 시
+        # "ModuleNotFoundError: No module named 'PIL._tkinter_finder'"가 발생함
+        "--hidden-import=PIL._tkinter_finder",
     ]
 
     # 드래그 앤 드롭 의존성(tkinterdnd2)이 설치되어 있으면 함께 번들링
@@ -79,26 +87,27 @@ def build_imgviewer():
             print_with_color("=== 빌드 성공! ===", 32)
             
             # 빌드 결과 확인
-            exe_path = dist_dir / "ImageViewer.exe"
+            exe_path = dist_dir / EXE_NAME
             if exe_path.exists():
                 file_size = exe_path.stat().st_size / (1024 * 1024)  # MB
                 print_with_color(f"실행 파일 생성됨: {exe_path}", 32)
                 print_with_color(f"파일 크기: {file_size:.2f} MB", 36)
-                
+
                 # 실행 파일 정보 출력
                 print_with_color("\n=== 빌드 정보 ===", 33)
                 print(f"실행 파일 경로: {exe_path}")
                 print(f"파일 크기: {file_size:.2f} MB")
                 print(f"빌드 디렉토리: {build_dir}")
                 print(f"출력 디렉토리: {dist_dir}")
-                
+
                 # 사용법 안내
                 print_with_color("\n=== 사용법 ===", 33)
                 print("1. 더블클릭으로 실행")
-                print("2. 명령줄에서 실행: ImageViewer.exe [이미지파일경로]")
+                print(f"2. 명령줄에서 실행: {EXE_NAME} [이미지파일경로]")
                 print("3. 이미지 파일을 드래그 앤 드롭으로 열기")
-                print("4. 기본 프로그램 등록: Tools > Register as Default Image Viewer")
-                print("   (HKEY_CURRENT_USER에만 기록되므로 관리자 권한 없이 바로 사용 가능)")
+                if IS_WINDOWS:
+                    print("4. 기본 프로그램 등록: Tools > Register as Default Image Viewer")
+                    print("   (HKEY_CURRENT_USER에만 기록되므로 관리자 권한 없이 바로 사용 가능)")
 
             else:
                 print_with_color("오류: 실행 파일이 생성되지 않았습니다.", 31)

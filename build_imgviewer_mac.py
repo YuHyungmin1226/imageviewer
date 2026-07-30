@@ -51,6 +51,10 @@ def build_imgviewer_mac():
         "--workpath", str(build_dir),   # 작업 디렉토리
         "--clean",                      # 빌드 전 정리
         "--windowed",                   # GUI 애플리케이션으로 설정 (.app 번들 생성)
+        # PyInstaller가 PIL.ImageTk의 동적 임포트(PIL._tkinter_finder)를 자동으로
+        # 감지하지 못해, 이 옵션 없이 빌드하면 .app에서 이미지 표시 시
+        # "ModuleNotFoundError: No module named 'PIL._tkinter_finder'"가 발생함
+        "--hidden-import=PIL._tkinter_finder",
         str(imgviewer_path)             # 빌드할 Python 파일
     ]
     
