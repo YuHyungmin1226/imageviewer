@@ -36,7 +36,8 @@ if platform.system() == "Windows":
 
 # 상수 정의
 SUPPORTED_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif")
-DEFAULT_WINDOW_SIZE = "800x600"
+DEFAULT_WINDOW_SIZE = "1200x800"
+INITIAL_WINDOW_SCREEN_RATIO = 0.75  # 초기 창 크기를 화면 크기의 비율로 계산
 MIN_WINDOW_SIZE = (400, 300)
 DEFAULT_CANVAS_SIZE = (640, 480)
 MAX_CACHE_SIZE = 15
@@ -316,7 +317,7 @@ class ImageViewer:
         else:
             self.root = tk.Tk()
         self.root.title("Image Viewer")
-        self.root.geometry(DEFAULT_WINDOW_SIZE)  # 기본 창 크기를 더 크게 설정
+        self.root.geometry(self._initial_window_geometry())  # 화면 크기에 비례한 초기 창 크기
         self.root.minsize(MIN_WINDOW_SIZE[0], MIN_WINDOW_SIZE[1])  # 최소 창 크기 설정
 
         self.images: List[str] = []
@@ -376,6 +377,23 @@ class ImageViewer:
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.root.mainloop()
     
+    def _initial_window_geometry(self) -> str:
+        """화면 해상도에 비례한 초기 창 크기를 계산.
+
+        고정 크기(DEFAULT_WINDOW_SIZE)만 쓰면 고해상도 화면에서는 창이 지나치게
+        작아 보이고, 저해상도 화면에서는 화면을 넘어갈 수 있어 화면 크기의 비율로 계산한다.
+        """
+        try:
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+        except tk.TclError:
+            return DEFAULT_WINDOW_SIZE
+
+        default_width, default_height = (int(v) for v in DEFAULT_WINDOW_SIZE.split("x"))
+        width = max(MIN_WINDOW_SIZE[0], min(default_width, int(screen_width * INITIAL_WINDOW_SCREEN_RATIO)))
+        height = max(MIN_WINDOW_SIZE[1], min(default_height, int(screen_height * INITIAL_WINDOW_SCREEN_RATIO)))
+        return f"{width}x{height}"
+
     def setup_bindings(self) -> None:
         """단축키 및 이벤트 바인딩 설정"""
         self.root.bind("<Configure>", self.on_window_resize)
@@ -559,8 +577,28 @@ class ImageViewer:
             log_debug(error_msg)
             messagebox.showerror("오류", error_msg)
 
+    def _enlarge_open_dialog(self, attempt: int = 0) -> None:
+        """Tk 기본 파일 열기 대화상자(리눅스)가 작게 뜨는 문제를 보정.
+
+        tkinter의 askopenfilename은 크기를 지정하는 파라미터가 없어, 대화상자가
+        뜬 직후 새로 나타난 최상위 창을 찾아 wm geometry로 직접 키운다.
+        대화상자가 아직 생성되지 않았을 수 있어 몇 차례 재시도한다.
+        """
+        try:
+            toplevels = [w for w in self.root.tk.call("wm", "stackorder", ".") if w != "."]
+        except tk.TclError:
+            return
+        if toplevels:
+            try:
+                self.root.tk.call("wm", "geometry", toplevels[-1], "1000x700")
+            except tk.TclError:
+                pass
+        elif attempt < 10:
+            self.root.after(20, lambda: self._enlarge_open_dialog(attempt + 1))
+
     def select_image(self) -> None:
         """파일 선택 대화상자를 표시하고 선택한 이미지 열기"""
+        self.root.after(20, self._enlarge_open_dialog)
         file_path = filedialog.askopenfilename(
             title="이미지 파일 열기",
             filetypes=[
