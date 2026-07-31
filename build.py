@@ -13,6 +13,8 @@ import PyInstaller.__main__
 APP_NAME = "ImageViewer"
 ENTRY_POINT = "main.py"
 BUNDLE_IDENTIFIER = "com.yuhyungmin.imageviewer"
+ICON_ICO = "assets/icon.ico"
+ICON_ICNS = "assets/icon.icns"
 
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
@@ -54,8 +56,10 @@ def build() -> bool:
 
     if IS_WINDOWS:
         params.append("--onefile")
+        params.append(f"--icon={ICON_ICO}")
     elif IS_MAC:
         params.append(f"--osx-bundle-identifier={BUNDLE_IDENTIFIER}")
+        params.append(f"--icon={ICON_ICNS}")
 
     try:
         PyInstaller.__main__.run(params)
