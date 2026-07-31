@@ -3,288 +3,97 @@
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Type Hints](https://img.shields.io/badge/Type%20Hints-Enabled-blue.svg)
 
-**ImageViewer**는 Python과 Tkinter로 개발된 강력하고 가벼운 이미지 뷰어 애플리케이션입니다. 다양한 이미지 형식을 지원하며, 직관적인 인터페이스와 고급 기능을 제공합니다. 최신 코드 최적화로 타입 힌트 지원과 향상된 성능을 제공합니다.
+**ImageViewer**는 Python과 PySide6(Qt)로 만든 가볍고 미니멀한 이미지 뷰어입니다. [MinimalPlayer](https://github.com/YuHyungmin1226/MinimalPlayer)와 동일한 UI 형태 — 테두리 없는(frameless) 창, 커스텀 다크 타이틀바, 하단 컨트롤바, 전체 화면 자동 숨김 — 를 따릅니다.
 
 ## ✨ 주요 기능
 
 ### 🖼️ 이미지 지원
 - **지원 형식**: JPG, JPEG, PNG, GIF, BMP, WebP, TIFF, TIF
-- **고품질 렌더링**: LANCZOS 리샘플링으로 선명한 이미지 표시
-- **자동 리사이즈**: 창 크기에 맞춰 이미지 자동 조정
+- **고품질 렌더링**: LANCZOS 리샘플링으로 창 크기에 맞춰 선명하게 표시
+- **폴더 탐색**: 이미지를 열면 같은 폴더의 다른 이미지를 파일명 자연 정렬(`img2` → `img10`) 순서로 탐색
 
-### 🎮 사용자 인터페이스
-- **직관적인 UI**: 깔끔하고 현대적인 인터페이스
-- **전체 화면 모드**: `Enter` 키로 전체 화면 전환
-- **키보드 단축키**: 빠른 이미지 탐색 및 조작
-- **드래그 앤 드롭**: 이미지 파일을 창에 드래그하여 열기 (`tkinterdnd2` 설치 시 활성화). 단, PyInstaller로 빌드한 macOS 앱(`.app`)에서는 캔버스 렌더링 문제로 인해 창 내부 드래그 앤 드롭이 자동으로 비활성화됩니다 — 이 경우 Finder에서 앱 아이콘 위로 이미지 파일을 드래그하면 정상적으로 열립니다.
+### 🎨 미니멀 다크 UI (MinimalPlayer 스타일)
+- **프레임리스 창**: OS 기본 창틀 대신 커스텀 다크 타이틀바(`-`/`x` 버튼)와 하단 컨트롤바
+- **드래그로 창 이동**: 타이틀바나 이미지 영역을 클릭한 채로 드래그하면 창이 이동
+- **가장자리 드래그로 크기 조절**: 창 테두리(상하좌우 및 모서리) 근처에서 커서가 리사이즈 모양으로 바뀌며, 클릭한 채로 드래그하면 창 크기가 조절됨 (최소 크기 이하로는 줄어들지 않음)
+- **전체 화면 자동 숨김**: 전체 화면에서 마우스를 3초간 움직이지 않으면 타이틀/컨트롤 바가 부드럽게 페이드아웃되고, 움직이면 다시 페이드인
+- **더블클릭 / Enter**: 이미지 영역 더블클릭 또는 `Enter` 키로 전체 화면 전환
+
+### 🎮 조작
+- **하단 버튼**: `Open`(파일 열기), `|<`/`>|`(이전/다음), `Delete`(현재 이미지 삭제)
+- **드래그 앤 드롭**: Qt 네이티브 드래그 앤 드롭으로 이미지 파일을 창에 끌어다 놓기 (빌드된 실행 파일에서도 동일하게 동작)
+- **우클릭 메뉴**: Open, Delete, Clear Cache, Memory Info, (Windows) Set as Default Image Viewer, Debug Info, Exit
 
 ### 💾 메모리 관리
-- **스마트 캐싱**: 최대 15개 이미지 캐시 (200MB 제한)
-- **리사이즈 캐싱**: 창 크기별 리사이즈 결과 캐시 (최대 20개)
-- **자동 메모리 정리**: 사용하지 않는 이미지 자동 제거
-- **수동 캐시 정리**: `Ctrl+R`(macOS: `Cmd+R`)로 즉시 캐시 정리
+- **비동기 로딩**: `QThreadPool` 백그라운드 스레드에서 이미지를 로드·리사이즈해 UI가 멈추지 않음
+- **2단계 캐시**: 원본 디코딩 캐시(개수+메모리 제한)와 창 크기별 리사이즈 캐시를 분리 운용
+- **요청 취소**: 이미지를 빠르게 넘기면 오래된 로드 결과는 폐기되고 최신 이미지만 반영
 
 ### 🔗 파일 연결 (Windows)
-- **기본 프로그램 등록**: 이미지 파일 형식을 ImageViewer와 연결
-- **권한 불필요**: 현재 사용자(`HKEY_CURRENT_USER`)에만 등록하므로 관리자 권한 없이 동작
-- **즉시 반영**: 등록/해제 후 탐색기에 변경 사항을 자동 통지 (`SHChangeNotify`)
-- **일괄 등록/해제**: 모든 지원 형식 한 번에 처리
-- **상태 확인**: 현재 등록 상태 실시간 확인
-
-### ⚡ 성능
-- **비동기 로딩**: 백그라운드 스레드에서 이미지를 로드·리사이즈하므로, 대용량 이미지 파일을 열 때도 UI가 멈추지 않습니다. 로딩 중에는 "로딩 중..." 안내가 표시됩니다.
-- **요청 취소**: 이미지를 빠르게 넘길 경우 이전 로드 결과는 폐기되고 최신 이미지만 표시됩니다.
-- **응답성 향상**: 이미지 로딩 중에도 사용자는 프로그램을 자유롭게 조작할 수 있습니다.
-
-### 🔍 디버그 및 모니터링
-- **메모리 정보**: `Ctrl+M`(macOS: `Cmd+M`)으로 실시간 메모리 상태 확인
-- **디버그 정보**: 시스템 정보 및 캐시 상태 표시
-- **로그 기능**: 디버그 로그는 기본적으로 비활성화되어 있어 별도의 로그 파일을 생성하지 않습니다.
-
-### 🚀 코드 품질
-- **타입 힌트**: 모든 함수와 메서드에 타입 힌트 적용
-- **상수 정의**: 매직 넘버 제거 및 상수화
-- **성능 최적화**: 메모리 사용량 및 캐시 시스템 개선
-- **코드 가독성**: 일관된 코딩 스타일 적용
+- **기본 프로그램 등록**: 우클릭 메뉴 → `Set as Default Image Viewer`
+- **권한 불필요**: `HKEY_CURRENT_USER`에만 기록하므로 관리자 권한 없이 동작
+- Windows 정책상 등록 후에는 설정 앱의 '기본 앱'에서 사용자가 직접 선택해야 적용됩니다.
 
 ## 🚀 설치 및 실행
 
-### Python으로 실행
 ```bash
-# 저장소 클론
 git clone https://github.com/YuHyungmin1226/imageviewer.git
 cd imageviewer
 
-# 의존성 설치
+python -m venv venv
+# Windows: venv\Scripts\activate
+# macOS/Linux: source venv/bin/activate
+
 pip install -r requirements.txt
 
-# 실행
-python imgViewer.py
+python main.py
+# 특정 이미지로 시작
+python main.py "path/to/image.jpg"
 ```
 
-### 실행 파일로 빌드 (Windows)
+## ⌨️ 단축키
+
+| 단축키 | 기능 |
+|--------|------|
+| `Ctrl+O` (macOS: `Cmd+O`) | 이미지 파일 열기 |
+| `←` / `→` | 이전 / 다음 이미지 |
+| `Enter` / 이미지 영역 더블클릭 | 전체 화면 전환 |
+| `Space` / `Esc` | 프로그램 종료 |
+| `Ctrl+R` (macOS: `Cmd+R`) | 캐시 정리 |
+| `Ctrl+M` (macOS: `Cmd+M`) | 메모리 정보 표시 |
+| `Delete` / `Backspace` | 현재 이미지 파일 삭제 (확인 후 진행, 되돌릴 수 없음) |
+
+> macOS에서는 Qt가 `Ctrl` 표기를 자동으로 `Cmd` 키에 매핑하므로 별도 처리가 필요 없습니다.
+
+## 🛠 빌드
+
 ```bash
-# 빌드 스크립트 실행
-python build_imgviewer.py
-
-# 또는 수동 빌드
-pyinstaller --onefile --noconsole --name=ImageViewer --windowed imgViewer.py
+python build.py
 ```
 
-## 🎮 사용법
+Windows에서는 단일 실행 파일(`dist/ImageViewer.exe`), macOS에서는 `.app` 번들(`dist/ImageViewer.app`)이 생성됩니다.
 
-### 기본 실행
-```bash
-# 빈 창으로 시작
-python imgViewer.py
+## 📦 프로젝트 구조
 
-# 특정 이미지 파일 열기
-python imgViewer.py "path/to/image.jpg"
+```
+constants.py           앱 이름, 확장자, 캐시 크기 등 상수
+utils.py                파일 정렬/시그니처/필터링 유틸리티
+image_cache.py           원본 이미지 LRU 캐시
+file_association.py      Windows 파일 연결 등록 (레지스트리)
+image_viewer_window.py   메인 창 UI 및 이미지 로딩/탐색 로직
+main.py                  진입점, macOS 파일 열기 이벤트 라우팅
+build.py                 PyInstaller 빌드 스크립트
 ```
 
-### 단축키
+## 🔧 알려진 제약
 
-| 단축키 (Windows/Linux) | 단축키 (macOS) | 기능 |
-|--------|--------|------|
-| `Ctrl+O` | `Cmd+O` | 이미지 파일 열기 |
-| `←/→` | `←/→` | 이전/다음 이미지 |
-| `Enter` | `Enter` | 전체 화면 전환 |
-| `Space/ESC` | `Space/ESC` | 프로그램 종료 |
-| `Ctrl+R` | `Cmd+R` | 캐시 정리 |
-| `Ctrl+M` | `Cmd+M` | 메모리 정보 표시 |
-| `Delete` / `Backspace` | `Delete` / `Backspace` | 현재 이미지 파일 삭제 (확인 후 진행, 되돌릴 수 없음) |
-
-> macOS 노트북 키보드에는 순방향 `Delete` 키가 없는 경우가 많아 `Backspace`(⌫)로도 삭제할 수 있습니다.
-
-### Windows 파일 연결 설정
-
-> 현재 사용자 영역(`HKEY_CURRENT_USER`)에만 등록하므로 **관리자 권한이 필요 없습니다.**
-
-1. **기본 프로그램 등록**
-   - `Tools > Register as Default Image Viewer` 실행
-   - 모든 지원 형식이 자동으로 등록되고, 탐색기에 즉시 반영됨
-
-2. **등록 해제**
-   - `Tools > Unregister as Default Image Viewer` 실행
-
-## 🛠️ 시스템 요구사항
-
-### 최소 요구사항
-- **OS**: Windows 10/11, macOS 10.14+, Linux
-- **Python**: 3.8 이상 (타입 힌트 지원)
-- **메모리**: 512MB RAM
-- **저장공간**: 50MB 이상
-
-### 권장 사항
-- **OS**: Windows 11, macOS 12+, Ubuntu 20.04+
-- **Python**: 3.10 이상
-- **메모리**: 2GB RAM 이상
-- **저장공간**: 100MB 이상
-
-## 📦 의존성
-
-### 필수 패키지
-```
-Pillow>=9.1.0
-```
-
-### 선택 패키지 (드래그 앤 드롭)
-```
-tkinterdnd2>=0.3.0
-```
-> 미설치 시 드래그 앤 드롭만 비활성화되며, 그 외 기능은 정상 동작합니다.
-
-### 개발 패키지 (빌드용)
-```
-pyinstaller>=5.0.0
-```
-
-### 타입 힌트 지원
-- **Python 3.5+**: `typing` 모듈 기본 제공
-- **개발 도구**: `mypy>=1.0.0` (선택사항)
-
-## 🔧 빌드
-
-### Windows 실행 파일 빌드
-```bash
-# 자동 빌드
-python build_imgviewer.py
-
-# 수동 빌드
-pyinstaller --onefile --noconsole --name=ImageViewer --windowed imgViewer.py
-```
-
-### macOS 앱 번들 빌드
-```bash
-# 자동 빌드 (build/dist 폴더 정리 및 .app 생성까지 처리)
-python build_imgviewer_mac.py
-
-# 또는 수동 빌드
-pyinstaller --windowed --name=ImageViewer --hidden-import=PIL._tkinter_finder imgViewer.py
-```
-
-### Linux 실행 파일 빌드
-```bash
-# PyInstaller가 PIL.ImageTk의 동적 임포트(PIL._tkinter_finder)를 자동으로 감지하지 못해,
-# --hidden-import 없이 빌드하면 실행 파일에서 이미지 표시 시 오류가 발생함
-pyinstaller --onefile --name=ImageViewer --hidden-import=PIL._tkinter_finder imgViewer.py
-```
-
-> 리눅스에서 소스 실행 시 `python3-tk`(tkinter)와 `python3-pil.imagetk`(ImageTk) 패키지가 필요할 수 있습니다 (Debian/Ubuntu 기준: `sudo apt install python3-tk python3-pil.imagetk`).
-
-## 🐛 문제 해결
-
-### 일반적인 문제
-
-#### 실행이 안 되는 경우
-1. **Python 버전 확인**: Python 3.8 이상 필요
-2. **의존성 설치**: `pip install -r requirements.txt` 실행
-3. **권한 확인**: 파일 실행 권한 확인
-
-#### 이미지가 안 열리는 경우
-1. **파일 경로**: 한글이나 특수문자가 포함된 경로 확인
-2. **파일 권한**: 파일 읽기 권한 확인
-3. **파일 손상**: 이미지 파일이 손상되지 않았는지 확인
-
-#### 메모리 부족 오류
-1. **캐시 정리**: `Ctrl+R`로 캐시 정리
-2. **다른 프로그램 종료**: 메모리 사용량이 많은 프로그램 종료
-3. **재시작**: 프로그램 재시작
-
-### Windows 특정 문제
-
-#### 파일 연결이 안 되는 경우
-1. **다른 프로그램**: 다른 프로그램이 이미 기본 앱으로 등록되어 있는지 확인
-2. **Windows 설정**: Windows 설정 > 앱 > 기본 앱에서 확인 및 변경
-3. **재로그인**: 변경이 즉시 반영되지 않으면 탐색기를 재시작하거나 다시 로그인
-
-> 파일 연결은 `HKEY_CURRENT_USER`에만 기록하므로 관리자 권한이나 UAC 승인이 필요하지 않습니다.
-
-### macOS 특정 문제
-
-#### 전체 화면에서 메뉴 바가 계속 보이는 경우
-- macOS는 애플리케이션마다 별도의 메뉴 바가 아니라 화면 상단에 하나의 전역 메뉴 바를 사용합니다. Tk/Python 버전에 따라 전체 화면 전환 시 메뉴 바가 자동으로 숨겨지지 않을 수 있으며, 이는 알려진 Tkinter 제약사항으로 프로그램 동작에는 영향이 없습니다.
-
-#### `Delete` 키로 이미지가 삭제되지 않는 경우
-- 대부분의 맥북 키보드에는 순방향 삭제 키가 없습니다. `Backspace`(⌫) 키를 사용하면 동일하게 현재 이미지를 삭제할 수 있습니다.
-
-#### 앱(.app)에서 창에 이미지를 드래그해도 열리지 않는 경우
-- PyInstaller로 번들된 macOS 앱은 `tkinterdnd2` 기반 드래그 앤 드롭 사용 시 이미지가 화면에 렌더링되지 않는 문제가 있어 의도적으로 비활성화되어 있습니다. 대신 Finder에서 이미지 파일을 앱 아이콘 위로 드래그하면 정상적으로 열립니다. `python imgViewer.py`로 소스에서 직접 실행할 때는 창 내부 드래그 앤 드롭이 정상 동작합니다.
-
-## 📊 성능 최적화
-
-### 캐시 설정 조정
-```python
-# imgViewer.py에서 캐시 설정 변경
-self.image_cache = ImageCache(max_size=20, max_memory_mb=300)  # 더 큰 캐시
-```
-
-### 메모리 사용량 모니터링
-- `Ctrl+M`으로 실시간 메모리 상태 확인
-- `Help > Debug Info`로 캐시/메모리 상세 정보 확인
-
-### 타입 힌트 검증
-```bash
-# mypy 설치 (선택사항)
-pip install mypy
-
-# 타입 검사 실행
-mypy imgViewer.py
-```
-
-## 🔒 보안 정보
-
-### Windows 레지스트리 수정
-- **범위**: `HKEY_CURRENT_USER\Software\Classes`에만 기록 (시스템 전역 설정 미변경)
-- **권한**: 관리자 권한 불필요 — 현재 사용자에 한해 적용
-- **복원**: `Unregister as Default Image Viewer`로 언제든 등록 해제 가능
-
-### 로그 파일
-- 디버그 로그는 기본적으로 **비활성화**되어 있어 로그 파일을 생성하지 않습니다.
-- 따라서 디스크에 사용 기록이나 개인정보가 남지 않습니다.
-
-## 🤝 기여하기
-
-1. **Fork** 저장소
-2. **Feature branch** 생성 (`git checkout -b feature/AmazingFeature`)
-3. **Commit** 변경사항 (`git commit -m 'Add some AmazingFeature'`)
-4. **Push** 브랜치 (`git push origin feature/AmazingFeature`)
-5. **Pull Request** 생성
-
-### 개발 가이드라인
-- **타입 힌트**: 모든 함수와 메서드에 타입 힌트 추가
-- **상수 사용**: 매직 넘버 대신 상수 정의
-- **에러 처리**: 적절한 예외 처리 구현
-- **문서화**: 함수와 클래스에 docstring 추가
+- **GIF 애니메이션**: 첫 프레임만 정지 이미지로 표시합니다 (원본 tkinter 버전과 동일한 동작).
 
 ## 📝 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
 
-## 📞 지원
-
-### 버그 리포트
-문제가 발생하면 다음 정보와 함께 [Issues](https://github.com/YuHyungmin1226/imageviewer/issues)에 등록해주세요:
-- 운영체제 및 버전
-- Python 버전
-- 오류 메시지
-- 이미지 파일 형식
-- 프로그램 실행 시 발생하는 오류 메시지
-
-### 기능 요청
-새로운 기능이나 개선사항은 [Issues](https://github.com/YuHyungmin1226/imageviewer/issues)에 등록해주세요.
-
-## 🙏 감사의 말
-
-- **Pillow**: 이미지 처리 라이브러리
-- **Tkinter**: GUI 프레임워크
-- **PyInstaller**: 실행 파일 빌드 도구
-- **GitHub**: 프로젝트 호스팅
-
 ---
 
-**ImageViewer**는 교육 목적으로 제작되었으며, 개인 및 상업적 용도로 자유롭게 사용할 수 있습니다.
-
-**개발자**: [YuHyungmin1226](https://github.com/YuHyungmin1226) 
+**개발자**: [YuHyungmin1226](https://github.com/YuHyungmin1226)
