@@ -4,6 +4,7 @@
 Windows에서는 단일 실행 파일(.exe), macOS에서는 .app 번들을 생성한다.
 """
 
+import os
 import sys
 import shutil
 from pathlib import Path
@@ -52,6 +53,9 @@ def build() -> bool:
         # Pillow의 PIL.ImageQt는 설치된 Qt 바인딩을 런타임에 탐지하며, 이 조건부 임포트를
         # PyInstaller가 정적 분석만으로 못 찾는 경우가 있어 명시적으로 포함시킨다.
         "--hidden-import=PIL.ImageQt",
+        # QApplication.setWindowIcon()이 런타임에 읽도록 아이콘 PNG를 데이터로 동봉
+        # (--icon은 실행 파일 메타데이터에만 반영될 뿐 앱에서 로드 가능한 파일이 아님).
+        f"--add-data=assets/icon.png{os.pathsep}assets",
     ]
 
     if IS_WINDOWS:

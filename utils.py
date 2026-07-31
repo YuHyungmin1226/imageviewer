@@ -2,11 +2,22 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from typing import Any, List, Optional, Tuple
 
 from constants import SUPPORTED_EXTENSIONS
 
 _NATURAL_CHUNK_RE = re.compile(r"(\d+)")
+
+
+def resource_path(relative_path: str) -> str:
+    """개발 실행과 PyInstaller 번들 실행 모두에서 동작하는 리소스 경로를 반환.
+
+    PyInstaller로 빌드하면 데이터 파일이 sys._MEIPASS 아래 임시 폴더에 풀리므로,
+    개발 중 경로(이 파일 기준 상대 경로)와 분기해야 한다.
+    """
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 
 def natural_sort_key(path: str) -> tuple:

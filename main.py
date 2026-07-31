@@ -6,8 +6,10 @@ from collections.abc import Callable
 from typing import Optional
 
 from PySide6.QtCore import QEvent, QTimer
-from PySide6.QtGui import QFileOpenEvent
+from PySide6.QtGui import QFileOpenEvent, QIcon
 from PySide6.QtWidgets import QApplication
+
+from utils import resource_path
 
 
 class ImageViewerApplication(QApplication):
@@ -39,6 +41,10 @@ class ImageViewerApplication(QApplication):
 def main() -> int:
     app = ImageViewerApplication(sys.argv)
     app.setStyle("Fusion")
+    app.setWindowIcon(QIcon(resource_path("assets/icon.png")))
+    # 리눅스 데스크톱 환경(GNOME/KDE)이 실행 중인 창을 imageviewer.desktop과
+    # 매칭시켜 Alt+Tab/독/개요 화면에 올바른 아이콘을 표시하도록 지정.
+    app.setDesktopFileName("imageviewer")
 
     from image_viewer_window import ImageViewerWindow
 
