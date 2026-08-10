@@ -40,9 +40,13 @@ class ImageCache:
                 self._memory_usage -= self._estimate_memory_usage(self._cache.pop(key))
 
             new_memory = self._estimate_memory_usage(image)
+            max_memory_bytes = self.max_memory_mb * 1024 * 1024
+            if self.max_size <= 0 or max_memory_bytes <= 0 or new_memory > max_memory_bytes:
+                return
+
             while self._cache and (
                 len(self._cache) >= self.max_size
-                or (self._memory_usage + new_memory) > self.max_memory_mb * 1024 * 1024
+                or (self._memory_usage + new_memory) > max_memory_bytes
             ):
                 _, oldest_image = self._cache.popitem(last=False)
                 self._memory_usage -= self._estimate_memory_usage(oldest_image)

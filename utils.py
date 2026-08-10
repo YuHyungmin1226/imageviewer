@@ -33,7 +33,7 @@ def natural_sort_key(path: str) -> tuple:
     return (tuple(key), name)
 
 
-def file_signature(path: str) -> Optional[Tuple[float, int]]:
+def file_signature(path: str) -> Optional[Tuple[int, int]]:
     """파일의 mtime+size로 캐시 무효화 판단용 서명을 생성.
 
     캐시 키에 이 서명을 포함시키면, 외부에서 같은 경로의 파일이 교체/수정돼도
@@ -41,7 +41,7 @@ def file_signature(path: str) -> Optional[Tuple[float, int]]:
     """
     try:
         st = os.stat(path)
-        return (st.st_mtime, st.st_size)
+        return (st.st_mtime_ns, st.st_size)
     except OSError:
         return None
 

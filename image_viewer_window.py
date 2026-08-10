@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import sys
+from collections import OrderedDict
 from typing import List, Optional, Tuple
 
 from PIL import Image, UnidentifiedImageError
@@ -156,7 +157,8 @@ class ImageViewerWindow(QMainWindow):
         self.current_path: Optional[str] = None
 
         self.raw_cache = ImageCache(max_size=MAX_CACHE_SIZE, max_memory_mb=MAX_MEMORY_MB)
-        self.resize_cache: "dict[str, QImage]" = {}
+        self.resize_cache: "OrderedDict[str, QImage]" = OrderedDict()
+        self._resize_cache_memory = 0
         self.thread_pool = QThreadPool.globalInstance()
 
         self._load_seq = 0
@@ -352,7 +354,7 @@ class ImageViewerWindow(QMainWindow):
 
     def open_file(self, file_path: str) -> None:
         file_path = os.path.abspath(file_path)
-        if not os.path.exists(file_path):
+        if not os.path.isfile(file_path):
             self.show_error(f"파일이 존재하지 않습니다: {file_path}")
             return
         if not is_image_file(file_path):
@@ -369,6 +371,7 @@ class ImageViewerWindow(QMainWindow):
             return
         self.current_index = index
         file_path = self.images[index]
+        self.current_path = None
 
         width = self.image_container.width() or DEFAULT_CONTAINER_SIZE[0]
         height = self.image_container.height() or DEFAULT_CONTAINER_SIZE[1]
@@ -380,6 +383,7 @@ class ImageViewerWindow(QMainWindow):
         cache_key = f"{file_path}::{signature}::{width}x{height}"
         cached = self.resize_cache.get(cache_key)
         if cached is not None:
+            self.resize_cache.move_to_end(cache_key)
             self._apply_image(seq, file_path, cached)
             self._update_nav_state()
             return
@@ -400,12 +404,24 @@ class ImageViewerWindow(QMainWindow):
         signature = file_signature(file_path)
         cache_key = f"{file_path}::{signature}::{width}x{height}"
 
-        if len(self.resize_cache) >= MAX_RESIZE_CACHE_SIZE and cache_key not in self.resize_cache:
-            oldest_key = next(iter(self.resize_cache))
-            del self.resize_cache[oldest_key]
-        self.resize_cache[cache_key] = qimage
+        image_memory = qimage.sizeInBytes()
+        max_resize_memory = MAX_MEMORY_MB * 1024 * 1024
+        existing = self.resize_cache.pop(cache_key, None)
+        if existing is not None:
+            self._resize_cache_memory -= existing.sizeInBytes()
+
+        if MAX_RESIZE_CACHE_SIZE > 0 and 0 < image_memory <= max_resize_memory:
+            while self.resize_cache and (
+                len(self.resize_cache) >= MAX_RESIZE_CACHE_SIZE
+                or self._resize_cache_memory + image_memory > max_resize_memory
+            ):
+                _, oldest = self.resize_cache.popitem(last=False)
+                self._resize_cache_memory -= oldest.sizeInBytes()
+            self.resize_cache[cache_key] = qimage
+            self._resize_cache_memory += image_memory
 
         self._apply_image(seq, file_path, qimage)
+        self._update_nav_state()
 
     def _apply_image(self, seq: int, file_path: str, qimage: QImage) -> None:
         if seq != self._load_seq:
@@ -423,6 +439,16 @@ class ImageViewerWindow(QMainWindow):
     def _on_image_error(self, seq: int, message: str) -> None:
         if seq != self._load_seq:
             return
+        self.current_pixmap = None
+        self.current_path = None
+        self.image_label.setObjectName("ImagePlaceholder")
+        self.image_label.setStyleSheet("")
+        self.image_label.setPixmap(QPixmap())
+        self.image_label.setText("Unable to display image")
+        self.title_label.setText(APP_DISPLAY_NAME)
+        self.counter_label.setText(f"{self.current_index + 1} / {len(self.images)}" if self.images else "0 / 0")
+        self.filename_label.setText("")
+        self._update_nav_state()
         self.show_error(message)
 
     def _show_loading_indicator(self) -> None:
@@ -433,7 +459,7 @@ class ImageViewerWindow(QMainWindow):
         has_images = bool(self.images)
         self.prev_btn.setEnabled(has_images and self.current_index > 0)
         self.next_btn.setEnabled(has_images and self.current_index < len(self.images) - 1)
-        self.delete_btn.setEnabled(has_images)
+        self.delete_btn.setEnabled(bool(self.current_path))
 
     def show_next_image(self) -> None:
         if self.images and self.current_index < len(self.images) - 1:
@@ -453,6 +479,7 @@ class ImageViewerWindow(QMainWindow):
 
     def _on_resize_settled(self) -> None:
         self.resize_cache.clear()
+        self._resize_cache_memory = 0
         if self.images:
             self.show_image(self.current_index)
 
@@ -692,6 +719,7 @@ class ImageViewerWindow(QMainWindow):
     def clear_cache(self) -> None:
         self.raw_cache.clear()
         self.resize_cache.clear()
+        self._resize_cache_memory = 0
         QMessageBox.information(self, "캐시 정리", "모든 캐시가 정리되었습니다.")
 
     def show_memory_info(self) -> None:
@@ -790,6 +818,7 @@ class ImageViewerWindow(QMainWindow):
             self.images.remove(file_to_delete)
         self.raw_cache.clear()
         self.resize_cache.clear()
+        self._resize_cache_memory = 0
 
         if self.images:
             self.current_index = min(self.current_index, len(self.images) - 1)
