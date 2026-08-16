@@ -1,0 +1,11 @@
+# ImageViewer 의존성 패키지
+
+# GUI 프레임워크
+PySide6==6.11.1
+
+# 이미지 디코딩/리사이즈 (JPG, PNG, GIF, BMP, WebP, TIFF 지원)
+# 9.1.0 미만에는 코드가 사용하는 Image.Resampling.LANCZOS가 없어 AttributeError가 발생함
+Pillow==12.3.0
+
+# 개발/빌드용 패키지 (선택사항)
+pyinstaller==6.22.1
