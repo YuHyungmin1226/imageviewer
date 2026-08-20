@@ -46,6 +46,94 @@ from utils import file_signature, get_current_image_index, get_image_files_from_
 
 IS_WINDOWS = platform.system() == "Windows"
 
+if IS_WINDOWS:
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    dwmapi = ctypes.windll.dwmapi
+
+    class _RECT(ctypes.Structure):
+        _fields_ = [
+            ("left", ctypes.c_long),
+            ("top", ctypes.c_long),
+            ("right", ctypes.c_long),
+            ("bottom", ctypes.c_long),
+        ]
+
+    class _NCCALCSIZE_PARAMS(ctypes.Structure):
+        _fields_ = [
+            ("rgrc", _RECT * 3),
+            ("lppos", ctypes.c_void_p),
+        ]
+
+    class _MONITORINFO(ctypes.Structure):
+        _fields_ = [
+            ("cbSize", wintypes.DWORD),
+            ("rcMonitor", _RECT),
+            ("rcWork", _RECT),
+            ("dwFlags", wintypes.DWORD),
+        ]
+
+    class _MARGINS(ctypes.Structure):
+        _fields_ = [
+            ("cxLeftWidth", ctypes.c_int),
+            ("cxRightWidth", ctypes.c_int),
+            ("cyTopHeight", ctypes.c_int),
+            ("cyBottomHeight", ctypes.c_int),
+        ]
+
+    user32.MonitorFromWindow.argtypes = [wintypes.HWND, wintypes.DWORD]
+    user32.MonitorFromWindow.restype = wintypes.HMONITOR
+
+    user32.GetMonitorInfoW.argtypes = [wintypes.HMONITOR, ctypes.POINTER(_MONITORINFO)]
+    user32.GetMonitorInfoW.restype = wintypes.BOOL
+
+    user32.IsZoomed.argtypes = [wintypes.HWND]
+    user32.IsZoomed.restype = wintypes.BOOL
+
+    user32.ReleaseCapture.argtypes = []
+    user32.ReleaseCapture.restype = wintypes.BOOL
+
+    user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    user32.SendMessageW.restype = wintypes.LPARAM
+
+    user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.GetWindowLongW.restype = ctypes.c_long
+
+    user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+    user32.SetWindowLongW.restype = ctypes.c_long
+
+    user32.SetWindowPos.argtypes = [
+        wintypes.HWND,
+        wintypes.HWND,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        wintypes.UINT,
+    ]
+    user32.SetWindowPos.restype = wintypes.BOOL
+
+    dwmapi.DwmExtendFrameIntoClientArea.argtypes = [wintypes.HWND, ctypes.POINTER(_MARGINS)]
+    dwmapi.DwmExtendFrameIntoClientArea.restype = ctypes.c_long
+
+    GWL_STYLE = -16
+    WS_MAXIMIZEBOX = 0x00010000
+    WS_MINIMIZEBOX = 0x00020000
+    WS_THICKFRAME = 0x00040000
+    WS_CAPTION = 0x00C00000
+    WS_SYSMENU = 0x00080000
+    WM_NCCALCSIZE = 0x0083
+    WM_SYSCOMMAND = 0x0112
+    SC_MOVE = 0xF010
+    HTCAPTION = 2
+    SWP_FRAMECHANGED = 0x0020
+    SWP_NOMOVE = 0x0002
+    SWP_NOSIZE = 0x0001
+    SWP_NOZORDER = 0x0004
+    MONITOR_DEFAULTTONEAREST = 2
+
 DEFAULT_CONTAINER_SIZE = (640, 480)
 PLACEHOLDER_TEXT = "이미지를 드래그하거나 Ctrl+O로 열어보세요"
 
@@ -144,6 +232,7 @@ class _ImageLoadTask(QRunnable):
 
 class ImageViewerWindow(QMainWindow):
     def __init__(self, initial_file: Optional[str] = None):
+        self._win32_initialized: bool = False
         super().__init__()
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setStyleSheet(STYLE)
@@ -470,6 +559,56 @@ class ImageViewerWindow(QMainWindow):
             self.show_image(self.current_index - 1)
 
     # ------------------------------------------------------------------
+    # Win32 프레임리스 스냅 / 창 상태 이벤트
+    # ------------------------------------------------------------------
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if IS_WINDOWS and not self._win32_initialized:
+            self._init_win32_frameless()
+
+    def _init_win32_frameless(self) -> None:
+        self._win32_initialized = True
+        hwnd = int(self.winId())
+        style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+        style |= (WS_THICKFRAME | WS_MAXIMIZEBOX | WS_MINIMIZEBOX | WS_SYSMENU | WS_CAPTION)
+        user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+
+        margins = _MARGINS(1, 1, 1, 1)
+        dwmapi.DwmExtendFrameIntoClientArea(hwnd, ctypes.byref(margins))
+
+        user32.SetWindowPos(
+            hwnd,
+            0,
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
+        )
+
+    def nativeEvent(self, event_type, message):
+        if IS_WINDOWS:
+            try:
+                msg = wintypes.MSG.from_address(int(message))
+                if msg.message == WM_NCCALCSIZE and msg.wParam:
+                    hwnd = msg.hWnd
+                    if hwnd and user32.IsZoomed(hwnd):
+                        h_monitor = user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+                        if h_monitor:
+                            mi = _MONITORINFO()
+                            mi.cbSize = ctypes.sizeof(_MONITORINFO)
+                            if user32.GetMonitorInfoW(h_monitor, ctypes.byref(mi)):
+                                params = _NCCALCSIZE_PARAMS.from_address(msg.lParam)
+                                params.rgrc[0].left = mi.rcWork.left
+                                params.rgrc[0].top = mi.rcWork.top
+                                params.rgrc[0].right = mi.rcWork.right
+                                params.rgrc[0].bottom = mi.rcWork.bottom
+                    return True, 0
+            except Exception:
+                pass
+        return super().nativeEvent(event_type, message)
+
+    # ------------------------------------------------------------------
     # 창 크기 변경 / 전체 화면
     # ------------------------------------------------------------------
     def resizeEvent(self, event) -> None:
@@ -531,6 +670,13 @@ class ImageViewerWindow(QMainWindow):
                 self.toggle_fullscreen()
                 event.accept()
                 return
+            elif child in (self.title_bar, self.title_label):
+                if self.isMaximized():
+                    self.showNormal()
+                else:
+                    self.showMaximized()
+                event.accept()
+                return
         super().mouseDoubleClickEvent(event)
 
     # ------------------------------------------------------------------
@@ -586,13 +732,14 @@ class ImageViewerWindow(QMainWindow):
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton and not self.isFullScreen():
             local_pos = self.mapFromGlobal(event.globalPosition().toPoint())
-            edge = self._edge_at(local_pos)
-            if edge:
-                self._resize_edge = edge
-                self._resize_start_geometry = self.geometry()
-                self._resize_start_global_pos = event.globalPosition().toPoint()
-                event.accept()
-                return
+            if not self.isMaximized():
+                edge = self._edge_at(local_pos)
+                if edge:
+                    self._resize_edge = edge
+                    self._resize_start_geometry = self.geometry()
+                    self._resize_start_global_pos = event.globalPosition().toPoint()
+                    event.accept()
+                    return
 
             child = self.childAt(local_pos)
             draggable = {
@@ -601,6 +748,12 @@ class ImageViewerWindow(QMainWindow):
                 self.title_label, self.counter_label, self.filename_label,
             }
             if child is None or child in draggable:
+                if IS_WINDOWS and child in (self.title_bar, self.title_label):
+                    hwnd = int(self.winId())
+                    user32.ReleaseCapture()
+                    user32.SendMessageW(hwnd, WM_SYSCOMMAND, SC_MOVE + HTCAPTION, 0)
+                    event.accept()
+                    return
                 self._drag_pos = event.globalPosition().toPoint()
         super().mousePressEvent(event)
 
@@ -612,13 +765,15 @@ class ImageViewerWindow(QMainWindow):
             delta = event.globalPosition().toPoint() - self._drag_pos
             self.move(self.x() + delta.x(), self.y() + delta.y())
             self._drag_pos = event.globalPosition().toPoint()
-        elif not self.isFullScreen() and event.buttons() == Qt.MouseButton.NoButton:
+        elif not self.isFullScreen() and not self.isMaximized() and event.buttons() == Qt.MouseButton.NoButton:
             local_pos = self.mapFromGlobal(event.globalPosition().toPoint())
             edge = self._edge_at(local_pos)
             if edge:
                 self.setCursor(_EDGE_CURSORS[edge])
             else:
                 self.unsetCursor()
+        elif self.isMaximized() and event.buttons() == Qt.MouseButton.NoButton:
+            self.unsetCursor()
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:
@@ -636,14 +791,17 @@ class ImageViewerWindow(QMainWindow):
         # Qt는 macOS에서 ControlModifier를 Cmd 키에 매핑해 표준화하므로,
         # 별도의 플랫폼 분기 없이 Ctrl+O 등을 그대로 사용할 수 있다.
         ctrl = bool(event.modifiers() & Qt.KeyboardModifier.ControlModifier)
+        alt = bool(event.modifiers() & Qt.KeyboardModifier.AltModifier)
+        meta = bool(event.modifiers() & Qt.KeyboardModifier.MetaModifier)
+        no_nav_modifier = not (ctrl or alt or meta)
 
-        if key == Qt.Key.Key_Left:
+        if key == Qt.Key.Key_Left and no_nav_modifier:
             self.show_previous_image()
-        elif key == Qt.Key.Key_Right:
+        elif key == Qt.Key.Key_Right and no_nav_modifier:
             self.show_next_image()
-        elif key in (Qt.Key.Key_Space, Qt.Key.Key_Escape):
+        elif key in (Qt.Key.Key_Space, Qt.Key.Key_Escape) and no_nav_modifier:
             self.close()
-        elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+        elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and no_nav_modifier:
             self.toggle_fullscreen()
         elif ctrl and key == Qt.Key.Key_O:
             self.select_image()
@@ -651,7 +809,7 @@ class ImageViewerWindow(QMainWindow):
             self.clear_cache()
         elif ctrl and key == Qt.Key.Key_M:
             self.show_memory_info()
-        elif key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
+        elif key in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace) and no_nav_modifier:
             self.delete_current_image()
         else:
             super().keyPressEvent(event)
