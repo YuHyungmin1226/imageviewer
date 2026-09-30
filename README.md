@@ -72,7 +72,18 @@ python main.py "path/to/image.jpg"
 python build.py
 ```
 
-Windows에서는 단일 실행 파일(`dist/ImageViewer.exe`), macOS에서는 `.app` 번들(`dist/ImageViewer.app`)이 생성됩니다.
+결과물은 모두 `release/`에 만들어지고, 빌드 중간 파일은 자동으로 정리됩니다.
+
+| OS | 결과물 |
+|---|---|
+| Windows | `release\ImageViewer-Setup-<버전>.exe` (설치 파일 — 바탕 화면·시작 메뉴 바로 가기 생성, 관리자 권한 불필요) |
+| | `release\ImageViewer\ImageViewer.exe` (설치 없이 바로 실행) |
+| | `release\ImageViewer-<버전>-portable-win-x64.zip` (위 실행 폴더를 묶은 포터블 zip, 풀면 `ImageViewer\` 폴더) |
+| macOS | `release/ImageViewer.app`, `release/ImageViewer_v<버전>_macOS.zip` |
+
+`<버전>`은 빌드한 날짜(`YYYY.MM.DD`)입니다. 빌드는 실행하는 OS에 맞는 결과물만 생성합니다(크로스 컴파일 불가).
+
+Windows 빌드에는 [Inno Setup 6](https://jrsoftware.org/isinfo.php)이 필요합니다(`winget install JRSoftware.InnoSetup`). 빌드는 새 결과물(zip 내용·CRC 검사 포함)이 모두 확인된 뒤에만 `release\`를 바꾸고, `release\` 안의 파일이 사용 중이면 기존 결과물을 그대로 두고 실패(종료 코드 1)합니다. `release/`는 Git에 포함하지 않으며, 배포는 GitHub Release 등으로 합니다.
 
 ## 📦 프로젝트 구조
 
@@ -83,7 +94,8 @@ image_cache.py           원본 이미지 LRU 캐시
 file_association.py      Windows 파일 연결 등록 (레지스트리)
 image_viewer_window.py   메인 창 UI 및 이미지 로딩/탐색 로직
 main.py                  진입점, macOS 파일 열기 이벤트 라우팅
-build.py                 PyInstaller 빌드 스크립트
+build.py                 배포 빌드 스크립트 (앱별 설정)
+release_kit.py           Windows 배포 빌드 공통 로직 (PyInstaller + Inno Setup)
 ```
 
 ## 🔧 알려진 제약

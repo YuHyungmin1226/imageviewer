@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""ImageViewer를 독립 실행형 파일로 빌드하는 스크립트.
+"""ImageViewer 배포 빌드 스크립트.
 
-Windows에서는 단일 실행 파일(.exe), macOS에서는 .app 번들을 생성한다.
-빌드가 끝나면 결과물을 release/ 폴더로 복사하고 zip 배포판을 만든 뒤,
-build/dist/.spec 등 빌드 과정에서 생긴 중간 산출물은 모두 정리한다.
+Windows: release/ 에 설치 파일(ImageViewer-Setup-<버전>.exe) + 설치 없이 실행하는 폴더(ImageViewer/)
+         + 포터블 zip(ImageViewer-<버전>-portable-win-x64.zip)을 만든다 (release_kit.py).
+macOS/Linux: .app 번들 / 실행 파일을 release/ 로 복사하고 zip 배포판을 만든다.
+빌드 과정의 중간 산출물(Windows: dist-build/, 그 밖: build/ dist/ .spec)은 끝나면 모두 정리한다.
 """
 
 import os
@@ -16,17 +17,20 @@ from pathlib import Path
 
 import PyInstaller.__main__
 
+import release_kit
+
 APP_NAME = "ImageViewer"
 ENTRY_POINT = "main.py"
 BUNDLE_IDENTIFIER = "com.yuhyungmin.imageviewer"
 ICON_ICO = "assets/icon.ico"
 ICON_ICNS = "assets/icon.icns"
 SYSTEM_NAME = platform.system()
+VERSION = datetime.now().strftime("%Y.%m.%d")
 
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
 
-SCRIPT_DIR = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).resolve().parent
 DIST_DIR = SCRIPT_DIR / "dist"
 BUILD_DIR = SCRIPT_DIR / "build"
 RELEASE_DIR = SCRIPT_DIR / "release"
@@ -34,6 +38,28 @@ RELEASE_DIR = SCRIPT_DIR / "release"
 
 def print_with_color(message: str, color_code: int = 36) -> None:
     print(f"\033[{color_code}m{message}\033[0m")
+
+
+# Windows: 설치 파일 + 실행 폴더 + 포터블 zip
+WINDOWS_APP = release_kit.App(
+    root=SCRIPT_DIR,
+    name=APP_NAME,
+    display_name=APP_NAME,
+    version=VERSION,
+    entry=ENTRY_POINT,
+    app_id="5CDFB954-A199-47AE-B0B3-61531E807350",
+    icon=ICON_ICO,
+    windowed=True,
+    pyinstaller_args=[
+        # Pillow의 PIL.ImageQt는 설치된 Qt 바인딩을 런타임에 탐지하며, 이 조건부 임포트를
+        # PyInstaller가 정적 분석만으로 못 찾는 경우가 있어 명시적으로 포함시킨다.
+        "--hidden-import=PIL.ImageQt",
+        # QApplication.setWindowIcon()이 런타임에 읽도록 아이콘 PNG를 데이터로 동봉
+        # (--icon은 실행 파일 메타데이터에만 반영될 뿐 앱에서 로드 가능한 파일이 아님).
+        release_kit.add_data(SCRIPT_DIR / "assets" / "icon.png", "assets"),
+    ],
+    extra_files=["README.md"],
+)
 
 
 def clean_build_dirs() -> None:
@@ -46,6 +72,7 @@ def clean_build_dirs() -> None:
 
 
 def build() -> bool:
+    """macOS/Linux 용 PyInstaller 빌드 (Windows 는 release_kit 이 처리한다)."""
     print_with_color(f"=== {APP_NAME} 빌드 시작 ({sys.platform}) ===", 33)
 
     try:
@@ -74,10 +101,7 @@ def build() -> bool:
         f"--add-data=assets/icon.png{os.pathsep}assets",
     ]
 
-    if IS_WINDOWS:
-        params.append("--onefile")
-        params.append(f"--icon={ICON_ICO}")
-    elif IS_MAC:
+    if IS_MAC:
         params.append(f"--osx-bundle-identifier={BUNDLE_IDENTIFIER}")
         params.append(f"--icon={ICON_ICNS}")
 
@@ -100,8 +124,6 @@ def get_build_artifact():
     """PyInstaller가 생성한 배포 산출물을 반환한다."""
     if IS_MAC:
         artifact = DIST_DIR / f"{APP_NAME}.app"
-    elif IS_WINDOWS:
-        artifact = DIST_DIR / f"{APP_NAME}.exe"
     else:
         artifact = DIST_DIR / APP_NAME
     return artifact if artifact.exists() else None
@@ -152,11 +174,10 @@ def create_zip_package(release_artifact: Path):
     """배포용 ZIP 패키지를 생성한다."""
     print("ZIP 패키지 생성 중...")
 
-    version = datetime.now().strftime("%Y.%m.%d")
     platform_label = {"Windows": "Windows", "Darwin": "macOS", "Linux": "Linux"}.get(
         SYSTEM_NAME, SYSTEM_NAME or "Unknown"
     )
-    zip_path = RELEASE_DIR / f"{APP_NAME}_v{version}_{platform_label}.zip"
+    zip_path = RELEASE_DIR / f"{APP_NAME}_v{VERSION}_{platform_label}.zip"
 
     try:
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -181,6 +202,9 @@ def create_zip_package(release_artifact: Path):
 
 
 def main() -> bool:
+    if IS_WINDOWS:
+        return release_kit.build_windows_release(WINDOWS_APP)
+
     if not build():
         clean_build_dirs()
         return False
